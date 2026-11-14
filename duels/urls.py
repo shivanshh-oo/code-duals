@@ -2,6 +2,21 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    path('daily/', views.daily_challenge, name='daily_challenge'),
+    path('submissions/', views.submission_history, name='submission_history'),
+    path('history/', views.match_history, name='match_history'),
+    path('friends/', views.friends, name='friends'),
+    path('friends/add/', views.add_friend, name='add_friend'),
+    path('friends/accept/<int:friendship_id>/', views.accept_friend, name='accept_friend'),
+    path('friends/challenge/<int:user_id>/', views.challenge_friend, name='challenge_friend'),
+    path('notifications/', views.notifications, name='notifications'),
+    path('match/<int:match_id>/rematch/', views.rematch, name='rematch'),
+    path('match/<int:match_id>/abandon/', views.abandon_match, name='abandon_match'),
+    path('spectate/<int:match_id>/', views.spectate, name='spectate'),
+    path('spectate/<int:match_id>/status/', views.spectator_status, name='spectator_status'),
+    path('join/<str:invite_code>/', views.join_match, name='join_match'),
+    path('match/<int:match_id>/ready/', views.ready_match, name='ready_match'),
+    path('leaderboard/export/', views.leaderboard_csv, name='leaderboard_csv'),
     path('play/', views.play, name='play'),
     path('leaderboard/', views.leaderboard, name='leaderboard'),
     path('practice/<int:problem_id>/', views.practice, name='practice'),

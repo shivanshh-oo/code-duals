@@ -152,7 +152,7 @@ function submitPlacement() {
     .catch(err => {
         btn.disabled = false;
         btn.textContent = 'Submit Placement Test';
-        alert('Error submitting. Please try again.');
+        alert(err.message || 'Unable to reach the server. Please retry.');
     });
 }
 </script>

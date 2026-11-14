@@ -1,0 +1,38 @@
+<script>
+// Show useful errors when a session expires, CSRF fails, or the server returns HTML.
+const originalFetch=window.fetch.bind(window);
+window.fetch=async function(...args){
+ const response=await originalFetch(...args);
+ const originalJson=response.json.bind(response);
+ response.json=async function(){
+  if(response.redirected)throw new Error('Your session changed. Refresh this page and sign in again. Your code is still in the editor.');
+  if(!(response.headers.get('content-type')||'').includes('application/json'))throw new Error(response.status===403?'Security token expired. Refresh this page before submitting again.':'Server error ('+response.status+'). Please retry or check the server log.');
+  const data=await originalJson();if(!response.ok||data.error)throw new Error(data.error||'Request failed ('+response.status+')');return data;
+ };return response;
+};
+if(document.getElementById('codeEditor')||document.getElementById('placementForm')||document.querySelector('form.solution'))document.body.classList.add('coding-page');
+document.querySelectorAll('textarea[name="code"], textarea[name^="code_"]').forEach(editor=>{
+ const key='codeduels-draft:'+location.pathname+':'+(editor.name||editor.id);
+ if(!editor.value)editor.value=localStorage.getItem(key)||'';
+ editor.addEventListener('input',()=>localStorage.setItem(key,editor.value));
+});
+const placementForm=document.getElementById('placementForm');
+if(placementForm){
+ const cards=[...placementForm.querySelectorAll('.problem-card')];
+ const picker=document.createElement('nav');picker.className='problem-picker';picker.setAttribute('aria-label','Placement problems');placementForm.prepend(picker);
+ cards.forEach((card,index)=>{
+  const body=card.querySelector('.card-body'),editor=body.querySelector('textarea');
+  const description=document.createElement('section');description.className='description';
+  while(body.firstChild){if(body.firstChild===editor){body.removeChild(editor);continue;}description.append(body.firstChild);}
+  const codePane=document.createElement('section');codePane.className='editor';const label=document.createElement('label');label.textContent='Code · Python | Use input() and print()';editor.id='placement-code-'+index;label.htmlFor=editor.id;codePane.append(label,editor);body.className='placement-workspace';body.append(description,codePane);
+  const button=document.createElement('button');button.type='button';button.textContent='Problem '+(index+1);button.onclick=()=>{cards.forEach((c,i)=>c.hidden=i!==index);[...picker.children].forEach((b,i)=>b.setAttribute('aria-selected',i===index));};picker.append(button);card.hidden=index!==0;button.setAttribute('aria-selected',index===0);
+ });
+}
+const duelForms=[...document.querySelectorAll('form.solution')];
+if(duelForms.length>1){
+ const columns=duelForms.map(form=>form.closest('.col-lg-6'));
+ const picker=document.createElement('nav');picker.className='problem-picker';picker.setAttribute('aria-label','Duel problems');
+ columns[0].parentElement.before(picker);
+ columns.forEach((column,index)=>{column.classList.remove('col-lg-6');column.classList.add('col-12');column.hidden=index!==0;const button=document.createElement('button');button.type='button';button.textContent='Problem '+(index+1);button.setAttribute('aria-selected',index===0);button.onclick=()=>{columns.forEach((item,i)=>item.hidden=i!==index);[...picker.children].forEach((item,i)=>item.setAttribute('aria-selected',i===index));};picker.append(button);});
+}
+</script>

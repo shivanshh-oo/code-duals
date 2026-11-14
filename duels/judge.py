@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import os
+import time
 
 
 def judge_submission(code, test_cases, time_limit_sec=5):
@@ -20,7 +21,10 @@ def judge_submission(code, test_cases, time_limit_sec=5):
     Returns:
         dict with keys: verdict, tests_passed, tests_total, details (list of per-test results)
     """
-    tests_total = len(test_cases) if not hasattr(test_cases, 'count') else test_cases.count()
+    test_cases = list(test_cases)
+    tests_total = len(test_cases)
+    if not tests_total:
+        return {'verdict': 'Error', 'tests_passed': 0, 'tests_total': 0, 'runtime_ms': 0, 'details': []}
     tests_passed = 0
     details = []
 
@@ -56,6 +60,7 @@ def judge_submission(code, test_cases, time_limit_sec=5):
         'verdict': verdict,
         'tests_passed': tests_passed,
         'tests_total': tests_total,
+        'runtime_ms': sum(d.get('runtime_ms', 0) for d in details),
         'details': details,
     }
 
@@ -63,6 +68,7 @@ def judge_submission(code, test_cases, time_limit_sec=5):
 def _run_single_test(code_path, input_data, expected_output, time_limit_sec):
     """Run code against a single test case."""
     try:
+        started = time.perf_counter()
         result = subprocess.run(
             [sys.executable, code_path],
             input=input_data,
@@ -71,12 +77,14 @@ def _run_single_test(code_path, input_data, expected_output, time_limit_sec):
             timeout=time_limit_sec,
         )
 
+        runtime_ms = max(1, round((time.perf_counter() - started) * 1000))
         if result.returncode != 0:
             return {
                 'passed': False,
                 'status': 'Error',
                 'output': result.stderr[:500],
                 'expected': expected_output,
+                'runtime_ms': runtime_ms,
             }
 
         actual_output = result.stdout.strip()
@@ -88,6 +96,7 @@ def _run_single_test(code_path, input_data, expected_output, time_limit_sec):
                 'status': 'Accepted',
                 'output': actual_output,
                 'expected': expected_clean,
+                'runtime_ms': runtime_ms,
             }
         else:
             return {
@@ -95,6 +104,7 @@ def _run_single_test(code_path, input_data, expected_output, time_limit_sec):
                 'status': 'Wrong Answer',
                 'output': actual_output,
                 'expected': expected_clean,
+                'runtime_ms': runtime_ms,
             }
 
     except subprocess.TimeoutExpired:
@@ -103,6 +113,7 @@ def _run_single_test(code_path, input_data, expected_output, time_limit_sec):
             'status': 'Time Limit',
             'output': 'Time Limit Exceeded',
             'expected': expected_output.strip(),
+            'runtime_ms': max(1, round(time_limit_sec * 1000)),
         }
     except Exception as e:
         return {
@@ -110,4 +121,5 @@ def _run_single_test(code_path, input_data, expected_output, time_limit_sec):
             'status': 'Error',
             'output': str(e)[:500],
             'expected': expected_output.strip(),
+            'runtime_ms': 0,
         }

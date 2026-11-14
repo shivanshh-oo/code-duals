@@ -1,6 +1,3 @@
-# duels/routing.py
 from django.urls import path
-
-websocket_urlpatterns = [
-    # Will be added in Phase 8
-]
+from .consumers import DuelConsumer
+websocket_urlpatterns = [path('ws/duel/<str:invite_code>/', DuelConsumer.as_asgi())]
