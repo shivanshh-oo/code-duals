@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+
+{% block title %}Placement Test - CodeDuels{% endblock %}
+
+{% block extra_css %}
+<style>
+    .problem-card { margin-bottom: 1.5rem; }
+    .code-area {
+        font-family: 'Courier New', monospace;
+        font-size: 13px;
+        min-height: 150px;
+        tab-size: 4;
+    }
+    #timer { font-size: 1.5rem; font-weight: bold; }
+    .result-badge { font-size: 0.9rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card mb-4">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <h3 class="mb-0">📝 Placement Test</h3>
+        <div id="timer" class="text-white">30:00</div>
+    </div>
+    <div class="card-body">
+        <p>Solve as many problems as you can. Your starting rating will be calculated based on your score.</p>
+        <p><strong>Problems:</strong> {{ total_problems }} | <strong>Formula:</strong> Rating = 800 + 1200 × (score ÷ {{ total_problems }})</p>
+    </div>
+</div>
+
+<form id="placementForm">
+    {% csrf_token %}
+    {% for problem in problems %}
+    <div class="card problem-card">
+        <div class="card-header d-flex justify-content-between">
+            <h5 class="mb-0">{{ forloop.counter }}. {{ problem.title }}</h5>
+            <span class="badge bg-{% if problem.difficulty == 'Easy' %}success{% elif problem.difficulty == 'Medium' %}warning{% else %}danger{% endif %}">{{ problem.difficulty }} ({{ problem.difficulty_rating }})</span>
+        </div>
+        <div class="card-body">
+            <div>{{ problem.statement|linebreaks }}</div>
+
+            {% for tc in problem.test_cases.all %}
+            {% if tc.is_sample %}
+            <div class="row mb-2">
+                <div class="col-md-6">
+                    <strong>Sample Input:</strong>
+                    <pre class="bg-light p-2 rounded">{{ tc.input }}</pre>
+                </div>
+                <div class="col-md-6">
+                    <strong>Expected Output:</strong>
+                    <pre class="bg-light p-2 rounded">{{ tc.expected_output }}</pre>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+
+            <textarea class="form-control code-area" name="code_{{ problem.id }}"
+                      placeholder="# Write your Python solution here..."></textarea>
+        </div>
+    </div>
+    {% endfor %}
+
+    <div class="text-center mb-4">
+        <button type="button" id="submitBtn" class="btn btn-primary btn-lg" onclick="submitPlacement()">
+            Submit Placement Test
+        </button>
+    </div>
+</form>
+
+<div id="resultPanel" class="card mb-4" style="display:none;">
+    <div class="card-header bg-success text-white">
+        <h4 class="mb-0">🎉 Placement Complete!</h4>
+    </div>
+    <div class="card-body" id="resultBody">
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Timer (30 minutes)
+let timeLeft = 30 * 60;
+const timerEl = document.getElementById('timer');
+
+const timerInterval = setInterval(() => {
+    timeLeft--;
+    const mins = Math.floor(timeLeft / 60);
+    const secs = timeLeft % 60;
+    timerEl.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+    if (timeLeft <= 0) {
+        clearInterval(timerInterval);
+        submitPlacement();
+    }
+    if (timeLeft <= 300) {
+        timerEl.classList.add('text-danger');
+    }
+}, 1000);
+
+// Tab key in textareas
+document.querySelectorAll('.code-area').forEach(ta => {
+    ta.addEventListener('keydown', function(e) {
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            const start = this.selectionStart;
+            this.value = this.value.substring(0, start) + '    ' + this.value.substring(this.selectionEnd);
+            this.selectionStart = this.selectionEnd = start + 4;
+        }
+    });
+});
+
+function submitPlacement() {
+    clearInterval(timerInterval);
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳ Judging...';
+
+    const form = document.getElementById('placementForm');
+    const formData = new FormData(form);
+
+    fetch('{% url "placement_submit" %}', {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-CSRFToken': formData.get('csrfmiddlewaretoken') },
+    })
+    .then(r => r.json())
+    .then(data => {
+        document.getElementById('placementForm').style.display = 'none';
+        const panel = document.getElementById('resultPanel');
+        panel.style.display = 'block';
+
+        let html = `
+            <div class="text-center mb-3">
+                <h2>Your Rating: <span class="text-primary">${data.rating}</span></h2>
+                <p>Score: ${data.score} / ${data.max_score}</p>
+            </div>
+            <table class="table">
+                <thead><tr><th>Problem</th><th>Verdict</th><th>Tests</th></tr></thead>
+                <tbody>
+        `;
+        data.results.forEach(r => {
+            const cls = r.verdict === 'Accepted' ? 'success' : 'danger';
+            html += `<tr>
+                <td>${r.problem}</td>
+                <td><span class="badge bg-${cls}">${r.verdict}</span></td>
+                <td>${r.tests_passed}/${r.tests_total}</td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+        html += '<div class="text-center"><a href="/" class="btn btn-primary">Go to Home</a></div>';
+        document.getElementById('resultBody').innerHTML = html;
+    })
+    .catch(err => {
+        btn.disabled = false;
+        btn.textContent = 'Submit Placement Test';
+        alert('Error submitting. Please try again.');
+    });
+}
+</script>
+{% endblock %}

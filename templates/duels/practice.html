@@ -1,0 +1,168 @@
+{% extends 'base.html' %}
+
+{% block title %}Practice: {{ problem.title }} - CodeDuels{% endblock %}
+
+{% block extra_css %}
+<style>
+    #codeEditor {
+        font-family: 'Courier New', monospace;
+        font-size: 14px;
+        min-height: 300px;
+        tab-size: 4;
+    }
+    .verdict-accepted { color: #28a745; font-weight: bold; }
+    .verdict-wrong { color: #dc3545; font-weight: bold; }
+    .verdict-tle { color: #fd7e14; font-weight: bold; }
+    .verdict-error { color: #dc3545; font-weight: bold; }
+</style>
+{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'problem_list' %}">Question Bank</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'problem_detail' problem.id %}">{{ problem.title }}</a></li>
+        <li class="breadcrumb-item active">Practice</li>
+    </ol>
+</nav>
+
+<div class="row">
+    <div class="col-md-5">
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0">{{ problem.title }}
+                    <span class="badge bg-{% if problem.difficulty == 'Easy' %}success{% elif problem.difficulty == 'Medium' %}warning{% else %}danger{% endif %} ms-2">{{ problem.difficulty }}</span>
+                </h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Time Limit:</strong> {{ problem.time_limit_sec }}s</p>
+                <hr>
+                <div>{{ problem.statement|linebreaks }}</div>
+            </div>
+        </div>
+
+        {% if sample_tests %}
+        <div class="card mb-3">
+            <div class="card-header"><h6 class="mb-0">Sample Test Cases</h6></div>
+            <div class="card-body">
+                {% for tc in sample_tests %}
+                <div class="mb-2">
+                    <strong>Input {{ forloop.counter }}:</strong>
+                    <pre class="bg-light p-2 rounded mb-1">{{ tc.input }}</pre>
+                    <strong>Expected:</strong>
+                    <pre class="bg-light p-2 rounded">{{ tc.expected_output }}</pre>
+                </div>
+                {% if not forloop.last %}<hr>{% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="col-md-7">
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Your Code (Python)</h5>
+                <button id="submitBtn" class="btn btn-success" onclick="submitCode()">▶ Submit</button>
+            </div>
+            <div class="card-body p-0">
+                <textarea id="codeEditor" class="form-control border-0 rounded-0" placeholder="# Write your Python code here...
+# Read input with input()
+# Print output with print()
+"></textarea>
+            </div>
+        </div>
+
+        <div id="resultPanel" class="card mb-3" style="display:none;">
+            <div class="card-header"><h5 class="mb-0">Results</h5></div>
+            <div class="card-body">
+                <div id="verdictDisplay"></div>
+                <div id="testDetails" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function submitCode() {
+    const code = document.getElementById('codeEditor').value;
+    const btn = document.getElementById('submitBtn');
+    const panel = document.getElementById('resultPanel');
+    const verdictEl = document.getElementById('verdictDisplay');
+    const detailsEl = document.getElementById('testDetails');
+
+    if (!code.trim()) {
+        alert('Please write some code first!');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Judging...';
+    panel.style.display = 'block';
+    verdictEl.innerHTML = '<div class="spinner-border spinner-border-sm"></div> Running your code...';
+    detailsEl.innerHTML = '';
+
+    const csrfToken = '{{ csrf_token }}';
+
+    fetch('{% url "practice_submit" problem.id %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': csrfToken,
+        },
+        body: 'code=' + encodeURIComponent(code) + '&csrfmiddlewaretoken=' + csrfToken,
+    })
+    .then(r => r.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.textContent = '▶ Submit';
+
+        const verdictClass = {
+            'Accepted': 'verdict-accepted',
+            'Wrong Answer': 'verdict-wrong',
+            'Time Limit': 'verdict-tle',
+            'Error': 'verdict-error',
+        }[data.verdict] || 'verdict-error';
+
+        verdictEl.innerHTML = `
+            <h4 class="${verdictClass}">${data.verdict}</h4>
+            <p>Tests passed: ${data.tests_passed} / ${data.tests_total}</p>
+        `;
+
+        let html = '<table class="table table-sm"><thead><tr><th>Test</th><th>Status</th><th>Details</th></tr></thead><tbody>';
+        data.details.forEach(d => {
+            const statusBadge = d.status === 'Accepted'
+                ? '<span class="badge bg-success">Passed</span>'
+                : `<span class="badge bg-danger">${d.status}</span>`;
+            let details = '';
+            if (d.is_sample && d.status !== 'Accepted') {
+                details = `Expected: <code>${d.expected}</code><br>Got: <code>${d.output}</code>`;
+            } else if (!d.is_sample) {
+                details = '<small class="text-muted">Hidden test</small>';
+            }
+            html += `<tr><td>#${d.test}</td><td>${statusBadge}</td><td>${details}</td></tr>`;
+        });
+        html += '</tbody></table>';
+        detailsEl.innerHTML = html;
+    })
+    .catch(err => {
+        btn.disabled = false;
+        btn.textContent = '▶ Submit';
+        verdictEl.innerHTML = '<div class="alert alert-danger">Error submitting code. Please try again.</div>';
+    });
+}
+
+// Tab key support in textarea
+document.getElementById('codeEditor').addEventListener('keydown', function(e) {
+    if (e.key === 'Tab') {
+        e.preventDefault();
+        const start = this.selectionStart;
+        const end = this.selectionEnd;
+        this.value = this.value.substring(0, start) + '    ' + this.value.substring(end);
+        this.selectionStart = this.selectionEnd = start + 4;
+    }
+});
+</script>
+{% endblock %}

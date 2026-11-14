@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+
+{% block title %}Question Bank - CodeDuels{% endblock %}
+
+{% block content %}
+<h2>Question Bank</h2>
+
+<div class="row mb-3">
+    <div class="col-md-4">
+        <input type="text" id="search" class="form-control" placeholder="Search problems...">
+    </div>
+    <div class="col-md-3">
+        <select id="category" class="form-select">
+            <option value="">All Categories</option>
+            <option value="DSA">DSA</option>
+            <option value="Web Dev">Web Dev</option>
+            <option value="AI-ML">AI-ML</option>
+        </select>
+    </div>
+    <div class="col-md-3">
+        <select id="difficulty" class="form-select">
+            <option value="">All Difficulties</option>
+            <option value="Easy">Easy</option>
+            <option value="Medium">Medium</option>
+            <option value="Hard">Hard</option>
+        </select>
+    </div>
+    <div class="col-md-2">
+        <button id="filterBtn" class="btn btn-primary w-100">Filter</button>
+    </div>
+</div>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Title</th>
+            <th>Category</th>
+            <th>Difficulty</th>
+            <th>Rating</th>
+        </tr>
+    </thead>
+    <tbody id="problemList">
+        <tr><td colspan="5" class="text-center">Loading...</td></tr>
+    </tbody>
+</table>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function loadProblems() {
+    const search = document.getElementById('search').value;
+    const category = document.getElementById('category').value;
+    const difficulty = document.getElementById('difficulty').value;
+    const params = new URLSearchParams();
+    if (search) params.append('search', search);
+    if (category) params.append('category', category);
+    if (difficulty) params.append('difficulty', difficulty);
+
+    fetch('{% url "problem_list_api" %}?' + params.toString())
+        .then(r => r.json())
+        .then(data => {
+            const tbody = document.getElementById('problemList');
+            if (data.problems.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center">No problems found.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = data.problems.map((p, i) => `
+                <tr>
+                    <td>${i + 1}</td>
+                    <td><a href="/problems/${p.id}/">${p.title}</a></td>
+                    <td>${p.category}</td>
+                    <td><span class="badge bg-${p.difficulty === 'Easy' ? 'success' : p.difficulty === 'Medium' ? 'warning' : 'danger'}">${p.difficulty}</span></td>
+                    <td>${p.difficulty_rating}</td>
+                </tr>
+            `).join('');
+        });
+}
+
+document.getElementById('filterBtn').addEventListener('click', loadProblems);
+document.getElementById('search').addEventListener('keyup', function(e) {
+    if (e.key === 'Enter') loadProblems();
+});
+
+// Load on page load
+loadProblems();
+</script>
+{% endblock %}
