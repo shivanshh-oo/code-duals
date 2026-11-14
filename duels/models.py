@@ -25,6 +25,7 @@ class Match(models.Model):
     winner = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='won_matches')
     is_private = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    rematch_of = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True)
 
     def save(self, *args, **kwargs):
         if not self.invite_code:
@@ -54,6 +55,7 @@ class Participant(models.Model):
     finished_at = models.DateTimeField(null=True, blank=True)
     rating_change = models.IntegerField(default=0)
     is_ready = models.BooleanField(default=False)
+    abandoned = models.BooleanField(default=False)
 
     class Meta:
         unique_together = ('match', 'user')
@@ -78,6 +80,45 @@ class Submission(models.Model):
     tests_total = models.IntegerField(default=0)
     time_taken = models.FloatField(default=0, help_text='Seconds since match start')
     submitted_at = models.DateTimeField(auto_now_add=True)
+    runtime_ms = models.PositiveIntegerField(default=0)
+    similarity_percent = models.PositiveSmallIntegerField(default=0)
+    is_flagged = models.BooleanField(default=False)
 
     def __str__(self):
         return f'{self.participant.user.username} - {self.problem.title}: {self.verdict}'
+
+
+class Friendship(models.Model):
+    STATUS = [('pending', 'Pending'), ('accepted', 'Accepted')]
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='friendships_sent')
+    receiver = models.ForeignKey(User, on_delete=models.CASCADE, related_name='friendships_received')
+    status = models.CharField(max_length=10, choices=STATUS, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['sender', 'receiver'], name='unique_friend_request')]
+
+
+class Notification(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='duel_notifications')
+    message = models.CharField(max_length=250)
+    url = models.CharField(max_length=250, blank=True)
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class Achievement(models.Model):
+    code = models.CharField(max_length=40, unique=True)
+    name = models.CharField(max_length=80)
+    description = models.CharField(max_length=250)
+    icon = models.CharField(max_length=20, default='★')
+    xp_reward = models.PositiveIntegerField(default=100)
+
+
+class UserAchievement(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='achievements')
+    achievement = models.ForeignKey(Achievement, on_delete=models.CASCADE)
+    earned_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['user', 'achievement'], name='unique_user_achievement')]

@@ -9,6 +9,22 @@ class Profile(models.Model):
     rating = models.IntegerField(default=1000)
     placement_done = models.BooleanField(default=False)
     is_setter = models.BooleanField(default=False)
+    xp = models.PositiveIntegerField(default=0)
+    login_streak = models.PositiveIntegerField(default=0)
+    last_active_date = models.DateField(null=True, blank=True)
+    queue_dodges = models.PositiveIntegerField(default=0)
+
+    @property
+    def level(self):
+        return self.xp // 500 + 1
+
+    @property
+    def rank_tier(self):
+        if self.rating >= 1800: return 'Diamond'
+        if self.rating >= 1500: return 'Platinum'
+        if self.rating >= 1200: return 'Gold'
+        if self.rating >= 900: return 'Silver'
+        return 'Bronze'
 
     def __str__(self):
         return f'{self.user.username} (Rating: {self.rating})'

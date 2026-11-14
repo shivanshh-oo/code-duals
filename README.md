@@ -30,3 +30,12 @@ python manage.py runserver
 
 ## Warning
 The code judge uses `subprocess` and is **not sandboxed**. Only run on a trusted network.
+
+
+## Arena additions
+Quick matchmaking, private invite rooms with ready toggles, participant-only WebSocket notifications, polling fallback, results, leaderboard CSV and Codeforces draft import are implemented.
+
+Run `python manage.py test duels` for the two-session integration tests.
+Run `python manage.py import_problems --limit 100` to import metadata. Add statements and test cases in Admin before publishing drafts.
+
+Development only: the subprocess judge executes code on the host and is not a security sandbox. Use trusted submissions locally. The in-memory queue/channel layer requires one server process.

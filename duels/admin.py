@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import Match, MatchProblem, Participant, Submission
+from .models import (Match, MatchProblem, Participant, Submission, Friendship,
+                     Notification, Achievement, UserAchievement)
 
 
 class MatchProblemInline(admin.TabularInline):
@@ -21,5 +22,14 @@ class MatchAdmin(admin.ModelAdmin):
 
 @admin.register(Submission)
 class SubmissionAdmin(admin.ModelAdmin):
-    list_display = ('participant', 'problem', 'verdict', 'tests_passed', 'tests_total', 'submitted_at')
-    list_filter = ('verdict',)
+    list_display = ('participant', 'problem', 'verdict', 'tests_passed', 'tests_total', 'is_flagged', 'similarity_percent', 'submitted_at')
+    list_filter = ('verdict', 'is_flagged')
+    search_fields = ('participant__user__username', 'problem__title', 'code')
+
+
+admin.site.register(Friendship)
+admin.site.register(Notification)
+admin.site.register(Achievement)
+admin.site.register(UserAchievement)
+admin.site.site_header = 'CodeDuels Control Center'
+admin.site.site_title = 'CodeDuels Admin'

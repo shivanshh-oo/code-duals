@@ -1,0 +1,1 @@
+{% extends 'base.html' %}{% block content %}<h1>Join the duel</h1><p>{{ match.invite_code }} / {{ match.difficulty }}</p><form method="post">{% csrf_token %}<button class="btn btn-primary">Join room</button></form>{% endblock %}

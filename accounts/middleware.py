@@ -1,5 +1,7 @@
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.utils import timezone
+from datetime import timedelta
 
 
 class PlacementRequiredMiddleware:
@@ -17,6 +19,14 @@ class PlacementRequiredMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
+        if request.user.is_authenticated and hasattr(request.user, 'profile'):
+            profile = request.user.profile
+            today = timezone.localdate()
+            if profile.last_active_date != today:
+                profile.login_streak = profile.login_streak + 1 if profile.last_active_date == today - timedelta(days=1) else 1
+                profile.last_active_date = today
+                profile.xp += 10
+                profile.save(update_fields=['login_streak', 'last_active_date', 'xp'])
         if (request.user.is_authenticated
                 and hasattr(request.user, 'profile')
                 and not request.user.profile.placement_done

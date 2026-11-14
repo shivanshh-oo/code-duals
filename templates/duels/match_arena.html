@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Battle arena</h1><p id="status" role="status"></p>
+{% if match.status == 'active' %}<form method="post" action="{% url 'abandon_match' match.id %}" onsubmit="return confirm('Leave this duel? A rating penalty will apply.')">{% csrf_token %}<button class="btn btn-sm btn-outline-danger">Leave duel</button></form>{% endif %}
+{% if match.status == 'waiting' %}<p>Invite: {{ request.scheme }}://{{ request.get_host }}/duels/join/{{ match.invite_code }}/</p><form method="post" action="{% url 'ready_match' match.id %}">{% csrf_token %}<button class="btn btn-primary">Ready up</button></form>{% endif %}
+<div class="row">{% for item in problems_data %}<div class="col-lg-6"><div class="card my-3 p-3"><h2>{{ item.problem.title }}</h2>{{ item.problem.statement|linebreaks }}{% for test in item.sample_tests %}<pre>Input: {{ test.input }}
+Output: {{ test.expected_output }}</pre>{% endfor %}<form class="solution" action="{% url 'match_submit' match.id item.problem.id %}">{% csrf_token %}<label>Python code</label><textarea class="form-control my-3" name="code" rows="12" required></textarea><button class="btn btn-primary">Submit solution</button><p role="status"></p></form></div></div>{% endfor %}</div>
+{% endblock %}
+{% block extra_js %}<script>
+async function refresh(){try{const r=await fetch('{% url "match_status_api" match.id %}');const d=await r.json();if(d.status==='finished')location.href='{% url "match_result" match.id %}';if(d.status==='active'&&'{{ match.status }}'==='waiting')location.reload();document.getElementById('status').textContent=`${d.status} | You ${d.my_solved} : ${d.opp_solved} Rival | ${Math.floor(d.time_left/60)}:${String(d.time_left%60).padStart(2,'0')} remaining`;}catch(e){document.getElementById('status').textContent='Reconnecting...';}}
+document.querySelectorAll('.solution').forEach(f=>f.onsubmit=async e=>{e.preventDefault();const b=f.querySelector('button');b.disabled=true;try{const r=await fetch(f.action,{method:'POST',body:new FormData(f)});const d=await r.json();f.querySelector('p').textContent=d.error||`${d.verdict}: ${d.tests_passed}/${d.tests_total}`;refresh();}catch(e){f.querySelector('p').textContent=e.message||'Connection failed. Retry.';}finally{b.disabled=false;}});
+const ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws/duel/{{ match.invite_code }}/');ws.onmessage=refresh;setInterval(refresh,2000);refresh();
+</script>{% endblock %}

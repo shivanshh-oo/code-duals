@@ -38,4 +38,5 @@
         </div>
     </div>
 </div>
+<div class="card mt-3"><div class="card-body"><h3>Progress</h3><p>Level {{ user.profile.level }} · {{ user.profile.xp }} XP · {{ user.profile.rank_tier }} tier</p><p>{{ user.profile.login_streak }} day login streak</p><h4>Badges</h4>{% for earned in user.achievements.all %}<span class="badge bg-warning text-dark me-2">{{ earned.achievement.icon }} {{ earned.achievement.name }}</span>{% empty %}<p class="text-muted">Solve problems and win duels to earn badges.</p>{% endfor %}</div></div>
 {% endblock %}

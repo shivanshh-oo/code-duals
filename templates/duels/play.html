@@ -1,3 +1,8 @@
-{% extends 'base.html' %}
-{% block title %}Play{% endblock %}
-{% block content %}<h2>Play</h2><p>Coming in Phase 6</p>{% endblock %}
+{% extends 'base.html' %}{% block content %}<p class="text-success">ENTER THE ARENA</p><h1>Ready. Set. Code.</h1><p>Your rating: {{ user.profile.rating }} RP</p><div class="card my-4"><h2>Choose your challenge</h2><form id="setup">{% csrf_token %}<label>Difficulty</label><select class="form-select mb-3" name="difficulty"><option>Easy</option><option>Medium</option><option>Hard</option></select><label>Private match duration</label><input class="form-control mb-3" name="duration" type="number" min="10" max="60" value="30"><button class="btn btn-primary" type="button" onclick="join()">Find a rival</button> <button class="btn btn-outline-light" type="button" onclick="cancel()">Cancel search</button> <button class="btn btn-primary" type="button" onclick="createRoom()">Challenge a friend</button></form><p id="notice" role="status"></p></div>{% endblock %}{% block extra_js %}<script>
+let waiting=false;const form=document.getElementById('setup'),notice=document.getElementById('notice');
+async function post(url){const r=await fetch(url,{method:'POST',body:new FormData(form)});const d=await r.json();if(!r.ok)throw Error(d.error||'Request failed');return d;}
+async function join(){try{await post('{% url "quick_match_join" %}');waiting=true;notice.textContent='Finding your rival...';}catch(e){notice.textContent=e.message;}}
+async function cancel(){await post('{% url "quick_match_cancel" %}');waiting=false;notice.textContent='Search cancelled';}
+async function createRoom(){try{const d=await post('{% url "create_match" %}');location.href='/duels/match/'+d.match_id+'/';}catch(e){notice.textContent=e.message;}}
+setInterval(async()=>{if(waiting){try{const r=await fetch('{% url "quick_match_poll" %}');const d=await r.json();if(d.match_id)location.href='/duels/match/'+d.match_id+'/';}catch(e){notice.textContent='Retrying connection...';}}},2000);
+</script>{% endblock %}

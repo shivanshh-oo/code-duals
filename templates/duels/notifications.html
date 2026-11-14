@@ -1,0 +1,1 @@
+{% extends 'base.html' %}{% block content %}<h1>Notifications</h1>{% for item in notifications %}<a class="card p-3 mb-2 text-decoration-none" href="{{ item.url|default:'#' }}"><span>{{ item.message }}</span><small class="text-muted">{{ item.created_at|timesince }} ago</small></a>{% empty %}<p>No notifications.</p>{% endfor %}{% endblock %}

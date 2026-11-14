@@ -150,7 +150,7 @@ function submitCode() {
     .catch(err => {
         btn.disabled = false;
         btn.textContent = '▶ Submit';
-        verdictEl.innerHTML = '<div class="alert alert-danger">Error submitting code. Please try again.</div>';
+        verdictEl.textContent = err.message || 'Unable to reach the server. Please retry.';
     });
 }
 

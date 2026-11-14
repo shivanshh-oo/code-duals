@@ -84,6 +84,7 @@ def _user_can_see_solution(user, problem):
     participated_in_finished = Participant.objects.filter(
         user=user,
         match_id__in=match_problem_ids,
-        match__status='finished'
+        match__status='finished',
+        match__duration_minutes__gt=0
     ).exists()
     return participated_in_finished
