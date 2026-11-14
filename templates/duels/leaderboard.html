@@ -1,1 +1,57 @@
-{% extends 'base.html' %}{% block content %}<h1>Hall of challengers</h1><a href="{% url 'leaderboard_csv' %}">Download CSV</a><table class="table mt-4"><tr><th>Rank</th><th>Player</th><th>Rating</th></tr>{% for p in players %}<tr><td>{{ forloop.counter }}</td><td>{{ p.user.username }}</td><td>{{ p.rating }} RP</td></tr>{% empty %}<tr><td colspan="3">Complete placement to join the ladder.</td></tr>{% endfor %}</table>{% endblock %}
+{% extends 'base.html' %}
+
+{% block title %}Leaderboard - CodeDuels{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4 fade-in" style="flex-wrap:wrap;gap:12px;">
+    <div class="d-flex align-items-center gap-2">
+        <h1 style="margin:0">Hall of challengers</h1>
+        <span class="chip chip--yellow"><span data-icon="trophy" data-size="14"></span> Global Ladder</span>
+    </div>
+    <a class="btn btn-outline btn-sm" href="{% url 'leaderboard_csv' %}">
+        <span data-icon="download" data-size="16"></span> Download CSV
+    </a>
+</div>
+
+<table class="table fade-in mt-3">
+    <thead>
+        <tr>
+            <th style="width:100px;">Rank</th>
+            <th>Player</th>
+            <th style="width:160px;">Rating</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for p in players %}
+        <tr>
+            <td>
+                {% if forloop.counter == 1 %}
+                <span class="badge badge--yellow"><span data-icon="trophy" data-size="13"></span> #1</span>
+                {% elif forloop.counter == 2 %}
+                <span class="badge badge--info"><span data-icon="award" data-size="13"></span> #2</span>
+                {% elif forloop.counter == 3 %}
+                <span class="badge"><span data-icon="award" data-size="13"></span> #3</span>
+                {% else %}
+                <strong>#{{ forloop.counter }}</strong>
+                {% endif %}
+            </td>
+            <td>
+                <div class="d-flex align-items-center" style="gap:10px;">
+                    <span class="avatar" style="width:34px;height:34px;background:var(--periwinkle);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:700;color:var(--navy)">
+                        {{ p.user.username|first|upper }}
+                    </span>
+                    <strong>{{ p.user.username }}</strong>
+                </div>
+            </td>
+            <td>
+                <span class="badge badge--yellow"><span data-icon="star" data-size="13"></span> {{ p.rating }} RP</span>
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="3" class="text-center text-muted py-4">Complete placement test to join the ladder.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

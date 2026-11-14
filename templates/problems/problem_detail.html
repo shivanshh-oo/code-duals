@@ -5,74 +5,76 @@
 {% block content %}
 <nav aria-label="breadcrumb">
     <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="{% url 'problem_list' %}">Question Bank</a></li>
-        <li class="breadcrumb-item active">{{ problem.title }}</li>
+        <li><a href="{% url 'problem_list' %}">Question Bank</a></li>
+        <li class="active">{{ problem.title }}</li>
     </ol>
 </nav>
 
-<div class="card mb-4">
-    <div class="card-header d-flex justify-content-between align-items-center">
+<div class="card mb-4 fade-in">
+    <div class="card-header">
         <h3 class="mb-0">{{ problem.title }}</h3>
-        <div>
-            <span class="badge bg-{% if problem.difficulty == 'Easy' %}success{% elif problem.difficulty == 'Medium' %}warning{% else %}danger{% endif %}">{{ problem.difficulty }}</span>
-            <span class="badge bg-secondary">{{ problem.category }}</span>
-            <span class="badge bg-info">Rating: {{ problem.difficulty_rating }}</span>
+        <div class="d-flex align-items-center gap-2">
+            <span class="chip {% if problem.difficulty == 'Easy' %}chip--diff-easy{% elif problem.difficulty == 'Medium' %}chip--diff-medium{% else %}chip--diff-hard{% endif %}">{{ problem.difficulty }}</span>
+            <span class="chip">{{ problem.category }}</span>
+            <span class="badge badge--yellow"><span data-icon="star" data-size="12"></span> {{ problem.difficulty_rating }} RP</span>
         </div>
     </div>
     <div class="card-body">
-        <p><strong>Time Limit:</strong> {{ problem.time_limit_sec }} seconds</p>
-        <hr>
+        <p class="text-muted"><span data-icon="clock" data-size="14"></span> <strong>Time Limit:</strong> {{ problem.time_limit_sec }} seconds</p>
+        <hr style="border:0;border-top:1.5px dashed var(--pale-blue-d);margin:14px 0;">
         <div>{{ problem.statement|linebreaks }}</div>
     </div>
 </div>
 
 {% if sample_tests %}
-<div class="card mb-4">
+<div class="card mb-4 fade-in">
     <div class="card-header">
-        <h5 class="mb-0">Sample Test Cases</h5>
+        <h4 class="mb-0">Sample Test Cases</h4>
     </div>
     <div class="card-body">
         {% for tc in sample_tests %}
         <div class="row mb-3">
             <div class="col-md-6">
-                <strong>Input {{ forloop.counter }}:</strong>
-                <pre class="bg-light p-2 rounded">{{ tc.input }}</pre>
+                <strong>Sample Input {{ forloop.counter }}:</strong>
+                <pre class="mt-2">{{ tc.input }}</pre>
             </div>
             <div class="col-md-6">
                 <strong>Expected Output {{ forloop.counter }}:</strong>
-                <pre class="bg-light p-2 rounded">{{ tc.expected_output }}</pre>
+                <pre class="mt-2">{{ tc.expected_output }}</pre>
             </div>
         </div>
-        {% if not forloop.last %}<hr>{% endif %}
+        {% if not forloop.last %}<hr style="border:0;border-top:1.5px dashed var(--pale-blue-d);margin:14px 0;">{% endif %}
         {% endfor %}
     </div>
 </div>
 {% endif %}
 
 {% if can_see_solution and solution %}
-<div class="card mb-4 border-success">
-    <div class="card-header bg-success text-white">
-        <h5 class="mb-0">✅ Solution (Unlocked)</h5>
+<div class="card mb-4 fade-in" style="border-left: 4px solid var(--success);">
+    <div class="card-header">
+        <h4 class="mb-0 text-success"><span data-icon="checkCircle" data-size="18"></span> Solution (Unlocked)</h4>
     </div>
     <div class="card-body">
-        <h6>Explanation:</h6>
+        <h5>Explanation:</h5>
         <p>{{ solution.explanation|linebreaks }}</p>
-        <h6>Reference Code:</h6>
-        <pre class="bg-light p-3 rounded"><code>{{ solution.reference_code }}</code></pre>
+        <h5 class="mt-3">Reference Code:</h5>
+        <pre><code>{{ solution.reference_code }}</code></pre>
     </div>
 </div>
 {% elif not can_see_solution %}
-<div class="card mb-4 border-secondary">
-    <div class="card-header bg-secondary text-white">
-        <h5 class="mb-0">🔒 Solution Locked</h5>
+<div class="card mb-4 fade-in" style="border-left: 4px solid var(--slate);">
+    <div class="card-header">
+        <h4 class="mb-0 text-muted">🔒 Solution Locked</h4>
     </div>
     <div class="card-body">
-        <p class="text-muted">Solve this problem or finish a match containing it to unlock the solution.</p>
+        <p class="text-muted mb-0">Solve this problem or finish a duel match containing it to unlock the official solution and reference code.</p>
     </div>
 </div>
 {% endif %}
 
 {% if user.is_authenticated %}
-<a href="{% url 'practice' problem.id %}" class="btn btn-primary">Practice this Problem</a>
+<div class="mt-3 mb-4">
+    <a href="{% url 'practice' problem.id %}" class="btn btn-yellow btn-lg"><span data-icon="terminal"></span> Practice this Problem</a>
+</div>
 {% endif %}
 {% endblock %}

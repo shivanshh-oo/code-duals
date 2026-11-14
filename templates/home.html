@@ -3,30 +3,35 @@
 {% block title %}CodeDuels - Home{% endblock %}
 
 {% block content %}
-<div class="text-center mt-5">
-    <h1>⚔️ CodeDuels</h1>
-    <p class="lead mt-3">Challenge your friends to 1v1 coding duels. Solve problems faster and better to win!</p>
-    {% if user.is_authenticated %}
-    <a href="{% url 'play' %}" class="btn btn-primary btn-lg mt-3">Play Now</a>
-    <a href="{% url 'problem_list' %}" class="btn btn-outline-secondary btn-lg mt-3">Question Bank</a>
-    {% else %}
-    <a href="{% url 'register' %}" class="btn btn-primary btn-lg mt-3">Get Started</a>
-    <a href="{% url 'login' %}" class="btn btn-outline-secondary btn-lg mt-3">Login</a>
-    {% endif %}
-</div>
+<section class="splash fade-in">
+    <h1>CodeDuels</h1>
+    <p class="lead mt-2">Challenge your friends to 1v1 coding duels. Solve problems faster and better to win!</p>
+    <div class="d-flex gap-2 justify-content-center mt-4" style="flex-wrap:wrap">
+        {% if user.is_authenticated %}
+        <a href="{% url 'play' %}" class="btn btn-yellow btn-lg"><span data-icon="swords"></span> Play Now</a>
+        <a href="{% url 'problem_list' %}" class="btn btn-outline-light btn-lg"><span data-icon="book"></span> Question Bank</a>
+        {% else %}
+        <a href="{% url 'register' %}" class="btn btn-yellow btn-lg">Get Started</a>
+        <a href="{% url 'login' %}" class="btn btn-outline-light btn-lg"><span data-icon="login"></span> Login</a>
+        {% endif %}
+    </div>
+</section>
 
-<div class="row mt-5">
-    <div class="col-md-4 text-center">
-        <h3>🎯 Practice</h3>
+<section class="feature-grid mt-4">
+    <article class="feature feature--blue fade-in">
+        <div class="feature__icon"><span data-icon="target" data-size="28"></span></div>
+        <h3>Practice</h3>
         <p>Sharpen your skills with problems from DSA, Web Dev, and AI-ML categories.</p>
-    </div>
-    <div class="col-md-4 text-center">
-        <h3>⚡ Compete</h3>
+    </article>
+    <article class="feature fade-in">
+        <div class="feature__icon"><span data-icon="zap" data-size="28"></span></div>
+        <h3>Compete</h3>
         <p>Challenge opponents in real-time 1v1 coding duels with live progress tracking.</p>
-    </div>
-    <div class="col-md-4 text-center">
-        <h3>📈 Climb</h3>
+    </article>
+    <article class="feature feature--green fade-in">
+        <div class="feature__icon"><span data-icon="trending" data-size="28"></span></div>
+        <h3>Climb</h3>
         <p>Earn rating points with every win and climb the leaderboard.</p>
-    </div>
-</div>
+    </article>
+</section>
 {% endblock %}

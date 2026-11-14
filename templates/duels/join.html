@@ -1,1 +1,21 @@
-{% extends 'base.html' %}{% block content %}<h1>Join the duel</h1><p>{{ match.invite_code }} / {{ match.difficulty }}</p><form method="post">{% csrf_token %}<button class="btn btn-primary">Join room</button></form>{% endblock %}
+{% extends 'base.html' %}
+
+{% block title %}Join Duel - CodeDuels{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-5">
+        <div class="card fade-in text-center p-4">
+            <div class="hero-icon hero-icon--lg mx-auto mb-3">
+                <span data-icon="swords" data-size="32"></span>
+            </div>
+            <h1>Join the Duel</h1>
+            <p class="text-muted">Room Code: <strong class="text-primary">{{ match.invite_code }}</strong> &nbsp;|&nbsp; Difficulty: <span class="chip">{{ match.difficulty }}</span></p>
+            <form method="post" class="mt-3">
+                {% csrf_token %}
+                <button class="btn btn-yellow btn-lg w-100"><span data-icon="swords"></span> Enter Battle Room</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

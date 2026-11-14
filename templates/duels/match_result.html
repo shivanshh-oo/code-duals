@@ -1,1 +1,71 @@
-{% extends 'base.html' %}{% block content %}<h1>Duel complete</h1><p>Winner: {{ match.winner.username|default:'Draw' }}</p><div class="card p-4"><h2>{{ my_participant.problems_solved }} challenges solved</h2><p>Rating change: {{ my_participant.rating_change|stringformat:'+d' }} RP</p><p>Current rating: {{ user.profile.rating }}</p></div><h2 class="mt-4">Replay summary</h2>{% for item in match_problems %}<p><a href="{% url 'problem_detail' item.problem.id %}">{{ item.problem.title }}</a></p>{% endfor %}<form method="post" action="{% url 'rematch' match.id %}" class="d-inline">{% csrf_token %}<button class="btn btn-primary">Request rematch</button></form> <a class="btn btn-outline-light" href="{% url 'play' %}">Play menu</a>{% endblock %}
+{% extends 'base.html' %}
+
+{% block title %}Duel Complete - CodeDuels{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-3">
+    <div class="col-md-8">
+        <div class="card text-center fade-in p-4 mb-4">
+            <h1 class="mb-2">Duel Complete</h1>
+            <p class="lead">
+                {% if match.winner == user %}
+                <span class="chip chip--success" style="font-size:1.1rem;padding:6px 16px;"><span data-icon="trophy" data-size="16"></span> Victory</span>
+                {% elif match.winner %}
+                <span class="chip chip--danger" style="font-size:1.1rem;padding:6px 16px;"><span data-icon="x" data-size="16"></span> Defeat</span>
+                {% else %}
+                <span class="chip chip--info" style="font-size:1.1rem;padding:6px 16px;"><span data-icon="equals" data-size="16"></span> Draw</span>
+                {% endif %}
+            </p>
+            <p class="text-muted">Winner: <strong>{{ match.winner.username|default:'Draw' }}</strong></p>
+
+            <div class="row mt-4 mb-2" style="gap:12px;">
+                <div class="col-md-4">
+                    <div class="stat-tile">
+                        <div class="stat-tile__value">{{ my_participant.problems_solved }}</div>
+                        <div class="stat-tile__label">Challenges Solved</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="stat-tile">
+                        <div class="stat-tile__value {% if my_participant.rating_change >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ my_participant.rating_change|stringformat:'+d' }} RP
+                        </div>
+                        <div class="stat-tile__label">Rating Delta</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="stat-tile">
+                        <div class="stat-tile__value">{{ user.profile.rating }}</div>
+                        <div class="stat-tile__label">Current Rating</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card fade-in mb-4">
+            <div class="card-header">
+                <h3 style="margin:0"><span data-icon="book"></span> Match Problems & Solutions Unlocked</h3>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">You can now view full solutions and reference code for problems in this duel:</p>
+                <div class="list-group">
+                    {% for item in match_problems %}
+                    <a href="{% url 'problem_detail' item.problem.id %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center mb-2">
+                        <span><strong>{{ item.problem.title }}</strong></span>
+                        <span class="chip {% if item.problem.difficulty == 'Easy' %}chip--diff-easy{% elif item.problem.difficulty == 'Medium' %}chip--diff-medium{% else %}chip--diff-hard{% endif %}">{{ item.problem.difficulty }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-center gap-2 mb-4">
+            <form method="post" action="{% url 'rematch' match.id %}" class="d-inline">
+                {% csrf_token %}
+                <button class="btn btn-yellow"><span data-icon="swords"></span> Request Rematch</button>
+            </form>
+            <a class="btn btn-outline" href="{% url 'play' %}">Play Menu</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

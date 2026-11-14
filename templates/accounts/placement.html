@@ -4,72 +4,90 @@
 
 {% block extra_css %}
 <style>
-    .problem-card { margin-bottom: 1.5rem; }
-    .code-area {
-        font-family: 'Courier New', monospace;
-        font-size: 13px;
-        min-height: 150px;
-        tab-size: 4;
+@media (min-width: 992px) {
+    .content-wrapper {
+        max-width: 1420px !important;
+        width: 96% !important;
     }
-    #timer { font-size: 1.5rem; font-weight: bold; }
-    .result-badge { font-size: 0.9rem; }
+}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="card mb-4">
-    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-        <h3 class="mb-0">📝 Placement Test</h3>
-        <div id="timer" class="text-white">30:00</div>
+<div class="card mb-4 fade-in">
+    <div class="card-header">
+        <div class="d-flex align-items-center gap-2">
+            <h3 class="mb-0">📝 Placement Test</h3>
+            <span class="chip chip--info"><span data-icon="book" data-size="14"></span> Evaluation</span>
+        </div>
+        <div id="timer" class="badge badge--yellow" style="font-size: 1.15rem; font-weight: 700;">
+            <span data-icon="clock" data-size="16"></span> 30:00
+        </div>
     </div>
     <div class="card-body">
-        <p>Solve as many problems as you can. Your starting rating will be calculated based on your score.</p>
-        <p><strong>Problems:</strong> {{ total_problems }} | <strong>Formula:</strong> Rating = 800 + 1200 × (score ÷ {{ total_problems }})</p>
+        <p class="mb-1">Solve as many problems as you can. Your starting rating will be calculated based on your score.</p>
+        <p class="text-muted mb-0"><strong>Problems:</strong> {{ total_problems }} &nbsp;|&nbsp; <strong>Formula:</strong> Rating = 800 + 1200 × (score ÷ {{ total_problems }})</p>
     </div>
 </div>
 
 <form id="placementForm">
     {% csrf_token %}
     {% for problem in problems %}
-    <div class="card problem-card">
-        <div class="card-header d-flex justify-content-between">
-            <h5 class="mb-0">{{ forloop.counter }}. {{ problem.title }}</h5>
-            <span class="badge bg-{% if problem.difficulty == 'Easy' %}success{% elif problem.difficulty == 'Medium' %}warning{% else %}danger{% endif %}">{{ problem.difficulty }} ({{ problem.difficulty_rating }})</span>
+    <div class="card problem-card fade-in mb-4">
+        <div class="card-header">
+            <h4 class="mb-0">{{ forloop.counter }}. {{ problem.title }}</h4>
+            <span class="chip {% if problem.difficulty == 'Easy' %}chip--diff-easy{% elif problem.difficulty == 'Medium' %}chip--diff-medium{% else %}chip--diff-hard{% endif %}">
+                {{ problem.difficulty }} ({{ problem.difficulty_rating }})
+            </span>
         </div>
         <div class="card-body">
-            <div>{{ problem.statement|linebreaks }}</div>
+            <div class="coding-workspace-grid">
+                <!-- LEFT COLUMN: Problem Statement & Sample Test Cases -->
+                <div class="workspace-problem-column">
+                    <div class="problem-desc-box">
+                        <h5 class="mb-2">Problem Statement</h5>
+                        <div>{{ problem.statement|linebreaks }}</div>
 
-            {% for tc in problem.test_cases.all %}
-            {% if tc.is_sample %}
-            <div class="row mb-2">
-                <div class="col-md-6">
-                    <strong>Sample Input:</strong>
-                    <pre class="bg-light p-2 rounded">{{ tc.input }}</pre>
+                        {% for tc in problem.test_cases.all %}
+                        {% if tc.is_sample %}
+                        <div class="mt-3">
+                            <strong>Sample Input:</strong>
+                            <pre class="mt-1">{{ tc.input }}</pre>
+                            <strong>Expected Output:</strong>
+                            <pre class="mt-1">{{ tc.expected_output }}</pre>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
                 </div>
-                <div class="col-md-6">
-                    <strong>Expected Output:</strong>
-                    <pre class="bg-light p-2 rounded">{{ tc.expected_output }}</pre>
+
+                <!-- RIGHT COLUMN: Compiler Box / Code Editor -->
+                <div class="workspace-compiler-column">
+                    <div class="compiler-box-wrapper">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label mb-0"><strong><span data-icon="terminal" data-size="14"></span> Python 3 Compiler & Editor</strong></label>
+                            <span class="text-muted" style="font-size:.8rem;">Use <code>input()</code> & <code>print()</code></span>
+                        </div>
+                        <textarea class="form-control code-editor" name="code_{{ problem.id }}" rows="18" style="min-height:55vh;"
+                                  placeholder="# Write your Python solution here...
+# Read with input() and print with print()"></textarea>
+                    </div>
                 </div>
             </div>
-            {% endif %}
-            {% endfor %}
-
-            <textarea class="form-control code-area" name="code_{{ problem.id }}"
-                      placeholder="# Write your Python solution here..."></textarea>
         </div>
     </div>
     {% endfor %}
 
-    <div class="text-center mb-4">
-        <button type="button" id="submitBtn" class="btn btn-primary btn-lg" onclick="submitPlacement()">
-            Submit Placement Test
+    <div class="text-center my-4">
+        <button type="button" id="submitBtn" class="btn btn-yellow btn-lg" onclick="submitPlacement()">
+            <span data-icon="terminal"></span> Submit Placement Test
         </button>
     </div>
 </form>
 
-<div id="resultPanel" class="card mb-4" style="display:none;">
-    <div class="card-header bg-success text-white">
-        <h4 class="mb-0">🎉 Placement Complete!</h4>
+<div id="resultPanel" class="card mb-4 fade-in" style="display:none; border-left: 4px solid var(--success);">
+    <div class="card-header">
+        <h4 class="mb-0 text-success"><span data-icon="checkCircle"></span> Placement Complete!</h4>
     </div>
     <div class="card-body" id="resultBody">
     </div>
@@ -78,7 +96,6 @@
 
 {% block extra_js %}
 <script>
-// Timer (30 minutes)
 let timeLeft = 30 * 60;
 const timerEl = document.getElementById('timer');
 
@@ -86,33 +103,23 @@ const timerInterval = setInterval(() => {
     timeLeft--;
     const mins = Math.floor(timeLeft / 60);
     const secs = timeLeft % 60;
-    timerEl.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+    timerEl.innerHTML = `<span data-icon="clock" data-size="16"></span> ${mins}:${secs.toString().padStart(2, '0')}`;
+    if (window.CD && window.CD.hydrateIcons) window.CD.hydrateIcons(timerEl);
     if (timeLeft <= 0) {
         clearInterval(timerInterval);
         submitPlacement();
     }
     if (timeLeft <= 300) {
-        timerEl.classList.add('text-danger');
+        timerEl.classList.remove('badge--yellow');
+        timerEl.classList.add('badge--warning');
     }
 }, 1000);
-
-// Tab key in textareas
-document.querySelectorAll('.code-area').forEach(ta => {
-    ta.addEventListener('keydown', function(e) {
-        if (e.key === 'Tab') {
-            e.preventDefault();
-            const start = this.selectionStart;
-            this.value = this.value.substring(0, start) + '    ' + this.value.substring(this.selectionEnd);
-            this.selectionStart = this.selectionEnd = start + 4;
-        }
-    });
-});
 
 function submitPlacement() {
     clearInterval(timerInterval);
     const btn = document.getElementById('submitBtn');
     btn.disabled = true;
-    btn.textContent = '⏳ Judging...';
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Judging...';
 
     const form = document.getElementById('placementForm');
     const formData = new FormData(form);
@@ -129,29 +136,30 @@ function submitPlacement() {
         panel.style.display = 'block';
 
         let html = `
-            <div class="text-center mb-3">
-                <h2>Your Rating: <span class="text-primary">${data.rating}</span></h2>
-                <p>Score: ${data.score} / ${data.max_score}</p>
+            <div class="text-center mb-4">
+                <h2>Your Rating: <span class="badge badge--yellow" style="font-size:1.6rem;"><span data-icon="star" data-size="18"></span> ${data.rating} RP</span></h2>
+                <p class="text-muted mt-2">Solved: ${data.score} / ${data.max_score}</p>
             </div>
             <table class="table">
                 <thead><tr><th>Problem</th><th>Verdict</th><th>Tests</th></tr></thead>
                 <tbody>
         `;
         data.results.forEach(r => {
-            const cls = r.verdict === 'Accepted' ? 'success' : 'danger';
+            const cls = r.verdict === 'Accepted' ? 'chip--success' : 'chip--danger';
             html += `<tr>
-                <td>${r.problem}</td>
-                <td><span class="badge bg-${cls}">${r.verdict}</span></td>
+                <td><strong>${r.problem}</strong></td>
+                <td><span class="chip ${cls}">${r.verdict}</span></td>
                 <td>${r.tests_passed}/${r.tests_total}</td>
             </tr>`;
         });
         html += '</tbody></table>';
-        html += '<div class="text-center"><a href="/" class="btn btn-primary">Go to Home</a></div>';
+        html += '<div class="text-center mt-4"><a href="/" class="btn btn-yellow btn-lg">Go to Home</a></div>';
         document.getElementById('resultBody').innerHTML = html;
+        if (window.CD && window.CD.hydrateIcons) window.CD.hydrateIcons(document.getElementById('resultBody'));
     })
     .catch(err => {
         btn.disabled = false;
-        btn.textContent = 'Submit Placement Test';
+        btn.innerHTML = '<span data-icon="terminal"></span> Submit Placement Test';
         alert(err.message || 'Unable to reach the server. Please retry.');
     });
 }

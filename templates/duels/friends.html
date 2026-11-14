@@ -1,1 +1,66 @@
-{% extends 'base.html' %}{% block content %}<h1>Friends and challenges</h1><form method="post" action="{% url 'add_friend' %}" class="d-flex gap-2 mb-4">{% csrf_token %}<input class="form-control" name="username" placeholder="Exact username" required><button class="btn btn-primary">Add friend</button></form><h2>Requests</h2>{% for r in pending %}<form method="post" action="{% url 'accept_friend' r.id %}">{% csrf_token %}{{ r.sender.username }} <button class="btn btn-sm btn-primary">Accept</button></form>{% empty %}<p class="text-muted">No pending requests.</p>{% endfor %}<h2 class="mt-4">Friends</h2>{% for friend in friends %}<div class="card p-3 mb-2 d-flex flex-row justify-content-between"><span>{{ friend.username }} · {{ friend.profile.rating }} RP</span><form method="post" action="{% url 'challenge_friend' friend.id %}">{% csrf_token %}<button class="btn btn-sm btn-primary">Challenge</button></form></div>{% empty %}<p class="text-muted">Add a friend to challenge them directly.</p>{% endfor %}{% endblock %}
+{% extends 'base.html' %}
+
+{% block title %}Friends - CodeDuels{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-2 mb-4 fade-in">
+    <h1 style="margin:0">Friends & Challenges</h1>
+</div>
+
+<div class="card fade-in mb-4">
+    <div class="card-header"><h3 style="margin:0"><span data-icon="users"></span> Add a Friend</h3></div>
+    <div class="card-body">
+        <form method="post" action="{% url 'add_friend' %}" class="d-flex gap-2" style="flex-wrap:wrap;">
+            {% csrf_token %}
+            <div style="position:relative;flex:1;min-width:240px;">
+                <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--navy-soft)" data-icon="search" data-size="16"></span>
+                <input class="form-control" name="username" placeholder="Exact username" style="padding-left:38px;" required>
+            </div>
+            <button class="btn btn-yellow"><span data-icon="user"></span> Add Friend</button>
+        </form>
+    </div>
+</div>
+
+<div class="card fade-in mb-4">
+    <div class="card-header"><h3 style="margin:0"><span data-icon="bell"></span> Pending Requests</h3></div>
+    <div class="card-body">
+        {% for r in pending %}
+        <div class="friend-row">
+            <div class="d-flex align-items-center" style="gap:10px;">
+                <span class="avatar">{{ r.sender.username|first|upper }}</span>
+                <strong>{{ r.sender.username }}</strong>
+            </div>
+            <form method="post" action="{% url 'accept_friend' r.id %}">
+                {% csrf_token %}
+                <button class="btn btn-sm btn-yellow"><span data-icon="check"></span> Accept</button>
+            </form>
+        </div>
+        {% empty %}
+        <p class="text-muted mb-0">No pending friend requests.</p>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="card fade-in">
+    <div class="card-header"><h3 style="margin:0"><span data-icon="users"></span> Your Friends</h3></div>
+    <div class="card-body">
+        {% for friend in friends %}
+        <div class="friend-row">
+            <div class="d-flex align-items-center" style="gap:10px;">
+                <span class="avatar">{{ friend.username|first|upper }}</span>
+                <div>
+                    <strong>{{ friend.username }}</strong><br>
+                    <small class="text-muted"><span data-icon="star" data-size="12"></span> {{ friend.profile.rating }} RP</small>
+                </div>
+            </div>
+            <form method="post" action="{% url 'challenge_friend' friend.id %}">
+                {% csrf_token %}
+                <button class="btn btn-sm btn-peri"><span data-icon="swords"></span> Challenge</button>
+            </form>
+        </div>
+        {% empty %}
+        <p class="text-muted mb-0">Add friends above to challenge them to 1v1 duels.</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

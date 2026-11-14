@@ -1,1 +1,53 @@
-{% extends 'base.html' %}{% block content %}<h1>Daily challenge</h1><p>{{ user.profile.login_streak }} day streak · Level {{ user.profile.level }} · {{ user.profile.xp }} XP · {{ user.profile.rank_tier }}</p>{% if problem %}<div class="card p-4"><span class="badge bg-warning text-dark">{{ problem.difficulty }}</span><h2>{{ problem.title }}</h2><p>{{ problem.statement|truncatewords:35 }}</p><a class="btn btn-primary" href="{% url 'practice' problem.id %}">Solve today’s challenge</a></div>{% else %}<p>No daily problem is available.</p>{% endif %}{% endblock %}
+{% extends 'base.html' %}
+
+{% block title %}Daily Challenge - CodeDuels{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-2 mb-4 fade-in" style="gap:14px;flex-wrap:wrap">
+    <h1 style="margin:0">Daily Challenge</h1>
+    <span class="chip chip--yellow"><span data-icon="flame" data-size="14"></span> {{ user.profile.login_streak }} day streak</span>
+</div>
+
+<div class="row mb-4" style="gap:12px;">
+    <div class="col-md-4">
+        <div class="stat-tile fade-in">
+            <div class="stat-tile__value">Level {{ user.profile.level }}</div>
+            <div class="stat-tile__label">{{ user.profile.rank_tier }} Tier</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-tile fade-in">
+            <div class="stat-tile__value">{{ user.profile.xp }}</div>
+            <div class="stat-tile__label">XP Earned</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-tile fade-in">
+            <div class="stat-tile__value">{{ user.profile.login_streak }}</div>
+            <div class="stat-tile__label">Consecutive Days</div>
+        </div>
+    </div>
+</div>
+
+{% if problem %}
+<div class="card fade-in p-4">
+    <div class="card-header">
+        <div class="d-flex align-items-center gap-2">
+            <span class="chip {% if problem.difficulty == 'Easy' %}chip--diff-easy{% elif problem.difficulty == 'Medium' %}chip--diff-medium{% else %}chip--diff-hard{% endif %}">{{ problem.difficulty }}</span>
+            <h2 style="margin:0">{{ problem.title }}</h2>
+        </div>
+        <span class="chip chip--info"><span data-icon="calendar" data-size="13"></span> Today's Quest</span>
+    </div>
+    <div class="card-body">
+        <p>{{ problem.statement|truncatewords:40 }}</p>
+        <a class="btn btn-yellow btn-lg mt-2" href="{% url 'practice' problem.id %}">
+            <span data-icon="terminal"></span> Solve Today's Challenge
+        </a>
+    </div>
+</div>
+{% else %}
+<div class="card fade-in p-4 text-center">
+    <p class="text-muted mb-0">No daily problem is available at the moment. Check back soon!</p>
+</div>
+{% endif %}
+{% endblock %}

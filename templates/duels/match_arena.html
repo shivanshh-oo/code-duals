@@ -1,13 +1,177 @@
 {% extends 'base.html' %}
-{% block content %}
-<h1>Battle arena</h1><p id="status" role="status"></p>
-{% if match.status == 'active' %}<form method="post" action="{% url 'abandon_match' match.id %}" onsubmit="return confirm('Leave this duel? A rating penalty will apply.')">{% csrf_token %}<button class="btn btn-sm btn-outline-danger">Leave duel</button></form>{% endif %}
-{% if match.status == 'waiting' %}<p>Invite: {{ request.scheme }}://{{ request.get_host }}/duels/join/{{ match.invite_code }}/</p><form method="post" action="{% url 'ready_match' match.id %}">{% csrf_token %}<button class="btn btn-primary">Ready up</button></form>{% endif %}
-<div class="row">{% for item in problems_data %}<div class="col-lg-6"><div class="card my-3 p-3"><h2>{{ item.problem.title }}</h2>{{ item.problem.statement|linebreaks }}{% for test in item.sample_tests %}<pre>Input: {{ test.input }}
-Output: {{ test.expected_output }}</pre>{% endfor %}<form class="solution" action="{% url 'match_submit' match.id item.problem.id %}">{% csrf_token %}<label>Python code</label><textarea class="form-control my-3" name="code" rows="12" required></textarea><button class="btn btn-primary">Submit solution</button><p role="status"></p></form></div></div>{% endfor %}</div>
+
+{% block title %}Battle Arena - CodeDuels{% endblock %}
+
+{% block extra_css %}
+<style>
+@media (min-width: 992px) {
+    .content-wrapper {
+        max-width: 1420px !important;
+        width: 96% !important;
+    }
+}
+</style>
 {% endblock %}
-{% block extra_js %}<script>
-async function refresh(){try{const r=await fetch('{% url "match_status_api" match.id %}');const d=await r.json();if(d.status==='finished')location.href='{% url "match_result" match.id %}';if(d.status==='active'&&'{{ match.status }}'==='waiting')location.reload();document.getElementById('status').textContent=`${d.status} | You ${d.my_solved} : ${d.opp_solved} Rival | ${Math.floor(d.time_left/60)}:${String(d.time_left%60).padStart(2,'0')} remaining`;}catch(e){document.getElementById('status').textContent='Reconnecting...';}}
-document.querySelectorAll('.solution').forEach(f=>f.onsubmit=async e=>{e.preventDefault();const b=f.querySelector('button');b.disabled=true;try{const r=await fetch(f.action,{method:'POST',body:new FormData(f)});const d=await r.json();f.querySelector('p').textContent=d.error||`${d.verdict}: ${d.tests_passed}/${d.tests_total}`;refresh();}catch(e){f.querySelector('p').textContent=e.message||'Connection failed. Retry.';}finally{b.disabled=false;}});
-const ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws/duel/{{ match.invite_code }}/');ws.onmessage=refresh;setInterval(refresh,2000);refresh();
-</script>{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3 fade-in" style="flex-wrap:wrap;gap:12px;">
+    <div class="d-flex align-items-center gap-2">
+        <span class="live-dot"></span>
+        <h1 style="margin:0">Battle Arena</h1>
+        <span class="chip chip--info"><span data-icon="swords" data-size="14"></span> Match #{{ match.invite_code }}</span>
+    </div>
+    <div id="status" class="badge badge--yellow" style="font-size:1rem;font-weight:700;" role="status">
+        Connecting to duel...
+    </div>
+</div>
+
+{% if match.status == 'waiting' %}
+<div class="card mb-4 fade-in" style="background:var(--pale-blue);border-color:var(--periwinkle);">
+    <div class="card-body">
+        <h4 class="mb-2"><span data-icon="users"></span> Waiting for Opponent</h4>
+        <p class="mb-3">Share this invite link with your rival to duel:</p>
+        <div class="d-flex gap-2 mb-3" style="flex-wrap:wrap;">
+            <input class="form-control" style="background:#fff;max-width:480px;" value="{{ request.scheme }}://{{ request.get_host }}/duels/join/{{ match.invite_code }}/" readonly id="inviteLink">
+            <button class="btn btn-yellow btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('inviteLink').value);this.textContent='Copied!';">Copy Link</button>
+        </div>
+        <form method="post" action="{% url 'ready_match' match.id %}">
+            {% csrf_token %}
+            <button class="btn btn-yellow"><span data-icon="check"></span> Ready Up</button>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+{% if match.status == 'active' %}
+<div class="d-flex justify-content-end mb-2">
+    <form method="post" action="{% url 'abandon_match' match.id %}" onsubmit="return confirm('Leave this duel? A rating penalty will apply.')">
+        {% csrf_token %}
+        <button class="btn btn-sm btn-outline" style="border-color:var(--danger);color:var(--danger);font-size:.8rem;">
+            <span data-icon="x"></span> Leave duel
+        </button>
+    </form>
+</div>
+{% endif %}
+
+<!-- Problem Selector Tab Navigation -->
+{% if problems_data|length > 1 %}
+<nav class="problem-picker mb-3 fade-in" aria-label="Duel problems">
+    {% for item in problems_data %}
+    <button type="button" class="duel-tab-btn" onclick="selectDuelProblem({{ forloop.counter0 }})" id="duel-tab-{{ forloop.counter0 }}" aria-selected="{% if forloop.first %}true{% else %}false{% endif %}">
+        Problem {{ forloop.counter }}: {{ item.problem.title }}
+    </button>
+    {% endfor %}
+</nav>
+{% endif %}
+
+<!-- Problems Workspaces (Split Side-by-Side: Left = Description, Right = Compiler) -->
+{% for item in problems_data %}
+<div class="card duel-problem-card fade-in p-4 mb-4" id="duel-problem-{{ forloop.counter0 }}" {% if not forloop.first %}style="display:none;"{% endif %}>
+    <div class="card-header pb-3 mb-3">
+        <div class="d-flex align-items-center gap-2">
+            <h3 class="mb-0">{{ forloop.counter }}. {{ item.problem.title }}</h3>
+            <span class="chip {% if item.problem.difficulty == 'Easy' %}chip--diff-easy{% elif item.problem.difficulty == 'Medium' %}chip--diff-medium{% else %}chip--diff-hard{% endif %}">{{ item.problem.difficulty }}</span>
+        </div>
+        <span class="badge badge--yellow"><span data-icon="clock" data-size="13"></span> {{ item.problem.time_limit_sec }}s limit</span>
+    </div>
+    <div class="card-body">
+        <div class="coding-workspace-grid">
+            <!-- LEFT COLUMN: Problem Statement & Sample Test Cases -->
+            <div class="workspace-problem-column">
+                <div class="problem-desc-box">
+                    <h5 class="mb-2">Problem Statement</h5>
+                    <div>{{ item.problem.statement|linebreaks }}</div>
+
+                    <h5 class="mt-4 mb-2">Sample Test Cases</h5>
+                    {% for test in item.sample_tests %}
+                    <div class="mb-3">
+                        <strong>Sample {{ forloop.counter }}:</strong>
+                        <pre>Input:
+{{ test.input }}
+Expected Output:
+{{ test.expected_output }}</pre>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN: Compiler Box / Code Editor -->
+            <div class="workspace-compiler-column">
+                <form class="solution compiler-box-wrapper" action="{% url 'match_submit' match.id item.problem.id %}">
+                    {% csrf_token %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <label class="form-label mb-0"><strong><span data-icon="terminal" data-size="15"></span> Python Compiler & Solution</strong></label>
+                        <span class="text-muted" style="font-size:.8rem;">Use <code>input()</code> and <code>print()</code></span>
+                    </div>
+                    <textarea class="form-control code-editor mb-3" name="code" rows="18" placeholder="# Write your Python 3 code here...
+# Read input with input()
+# Print output with print()" required></textarea>
+                    <div class="d-flex align-items-center justify-content-between gap-3 mt-auto">
+                        <button class="btn btn-yellow btn-lg"><span data-icon="terminal"></span> Submit Solution</button>
+                        <p class="mb-0 flex-grow-1 text-end" role="status" style="font-weight:600;"></p>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function selectDuelProblem(index) {
+    document.querySelectorAll('.duel-problem-card').forEach((card, i) => {
+        card.style.display = (i === index ? 'block' : 'none');
+    });
+    document.querySelectorAll('.duel-tab-btn').forEach((btn, i) => {
+        btn.setAttribute('aria-selected', i === index);
+    });
+}
+
+async function refresh(){
+    try {
+        const r=await fetch('{% url "match_status_api" match.id %}');
+        const d=await r.json();
+        if(d.status==='finished') location.href='{% url "match_result" match.id %}';
+        if(d.status==='active'&&'{{ match.status }}'==='waiting') location.reload();
+        const mins = Math.floor(d.time_left/60);
+        const secs = String(d.time_left%60).padStart(2,'0');
+        document.getElementById('status').innerHTML = `<span data-icon="clock" data-size="14"></span> ${mins}:${secs} remaining &nbsp;|&nbsp; You: <strong>${d.my_solved}</strong> &nbsp;vs&nbsp; Rival: <strong>${d.opp_solved}</strong>`;
+        if (window.CD && window.CD.hydrateIcons) window.CD.hydrateIcons(document.getElementById('status'));
+    } catch(e) {
+        document.getElementById('status').textContent='Reconnecting...';
+    }
+}
+
+document.querySelectorAll('.solution').forEach(f=>f.onsubmit=async e=>{
+    e.preventDefault();
+    const b=f.querySelector('button');
+    b.disabled=true;
+    b.innerHTML='<span class="spinner-border spinner-border-sm me-1"></span> Judging...';
+    try {
+        const r=await fetch(f.action,{method:'POST',body:new FormData(f)});
+        const d=await r.json();
+        const msgEl = f.querySelector('p');
+        if (d.error) {
+            msgEl.innerHTML = `<span class="chip chip--danger">${d.error}</span>`;
+        } else {
+            const cls = d.verdict === 'Accepted' ? 'chip--success' : 'chip--danger';
+            msgEl.innerHTML = `<span class="chip ${cls}">${d.verdict}</span> <small class="text-muted ms-2">${d.tests_passed}/${d.tests_total} tests</small>`;
+        }
+        refresh();
+    } catch(e) {
+        f.querySelector('p').textContent=e.message||'Connection failed. Retry.';
+    } finally {
+        b.disabled=false;
+        b.innerHTML='<span data-icon="terminal"></span> Submit Solution';
+        if (window.CD && window.CD.hydrateIcons) window.CD.hydrateIcons(b);
+    }
+});
+
+const ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws/duel/{{ match.invite_code }}/');
+ws.onmessage=refresh;
+setInterval(refresh,2000);
+refresh();
+</script>
+{% endblock %}

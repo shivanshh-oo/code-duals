@@ -1,1 +1,28 @@
-{% extends 'base.html' %}{% block content %}<h1>Notifications</h1>{% for item in notifications %}<a class="card p-3 mb-2 text-decoration-none" href="{{ item.url|default:'#' }}"><span>{{ item.message }}</span><small class="text-muted">{{ item.created_at|timesince }} ago</small></a>{% empty %}<p>No notifications.</p>{% endfor %}{% endblock %}
+{% extends 'base.html' %}
+
+{% block title %}Notifications - CodeDuels{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-2 mb-4 fade-in">
+    <h1 style="margin:0">Notifications</h1>
+    <span class="chip chip--info"><span data-icon="bell" data-size="14"></span> Inbox</span>
+</div>
+
+<div class="fade-in">
+    {% for item in notifications %}
+    <a class="note-card" href="{{ item.url|default:'#' }}">
+        <div class="d-flex align-items-center justify-content-between">
+            <div>
+                <strong>{{ item.message }}</strong>
+                <div class="text-muted mt-1" style="font-size:.82rem;">{{ item.created_at|timesince }} ago</div>
+            </div>
+            <span class="badge badge--yellow btn-sm">&rarr;</span>
+        </div>
+    </a>
+    {% empty %}
+    <div class="card p-4 text-center">
+        <p class="text-muted mb-0">No new notifications.</p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

@@ -1,1 +1,52 @@
-{% extends 'base.html' %}{% block title %}Submissions{% endblock %}{% block content %}<h1>Submission history</h1><table class="table"><thead><tr><th>Time</th><th>Problem</th><th>Verdict</th><th>Tests</th><th>Runtime</th><th>Code</th></tr></thead><tbody>{% for s in submissions %}<tr><td>{{ s.submitted_at|date:'M j, H:i' }}</td><td>{{ s.problem.title }}</td><td>{{ s.verdict }}</td><td>{{ s.tests_passed }}/{{ s.tests_total }}</td><td>{{ s.runtime_ms }} ms</td><td><details><summary>View</summary><pre>{{ s.code }}</pre></details>{% if s.is_flagged %}<span class="badge bg-warning text-dark">Review</span>{% endif %}</td></tr>{% empty %}<tr><td colspan="6">No submissions yet.</td></tr>{% endfor %}</tbody></table>{% endblock %}
+{% extends 'base.html' %}
+
+{% block title %}Submission History - CodeDuels{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-2 mb-4 fade-in">
+    <h1 style="margin:0">Submission History</h1>
+</div>
+
+<div class="card fade-in p-0" style="overflow:hidden;">
+    <table class="table mb-0">
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Problem</th>
+                <th>Verdict</th>
+                <th>Tests</th>
+                <th>Runtime</th>
+                <th>Code</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in submissions %}
+            <tr>
+                <td><small class="text-muted">{{ s.submitted_at|date:'M j, H:i' }}</small></td>
+                <td><strong>{{ s.problem.title }}</strong></td>
+                <td>
+                    <span class="chip {% if s.verdict == 'Accepted' %}chip--success{% elif s.verdict == 'Time Limit' %}chip--warning{% else %}chip--danger{% endif %}">
+                        {{ s.verdict }}
+                    </span>
+                </td>
+                <td>{{ s.tests_passed }}/{{ s.tests_total }}</td>
+                <td>{{ s.runtime_ms }} ms</td>
+                <td>
+                    <details>
+                        <summary style="cursor:pointer;color:var(--navy);font-weight:600;"><span data-icon="code" data-size="14"></span> View</summary>
+                        <pre class="mt-2">{{ s.code }}</pre>
+                    </details>
+                    {% if s.is_flagged %}
+                    <span class="chip chip--warning mt-1">Review</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="text-center text-muted py-4">No code submissions found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

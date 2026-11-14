@@ -1,1 +1,45 @@
-{% extends 'base.html' %}{% block content %}<h1>Match history</h1><div class="row g-3">{% for p in participations %}<div class="col-md-6"><div class="card p-3"><h3>{{ p.match.invite_code }}</h3><p>{{ p.problems_solved }} solved · {{ p.rating_change|stringformat:'+d' }} RP</p><p>{% if p.match.winner == user %}Victory{% elif p.match.winner %}Defeat{% else %}Draw{% endif %}</p><a href="{% url 'match_result' p.match.id %}">Replay summary</a></div></div>{% empty %}<p>No completed duels.</p>{% endfor %}</div>{% endblock %}
+{% extends 'base.html' %}
+
+{% block title %}Match History - CodeDuels{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-2 mb-4 fade-in">
+    <h1 style="margin:0">Match History</h1>
+</div>
+
+<div class="row g-3">
+    {% for p in participations %}
+    <div class="col-md-6">
+        <div class="card card--hover p-4 fade-in">
+            <div class="card-header">
+                <h4 style="margin:0"><span data-icon="flag"></span> Match #{{ p.match.invite_code }}</h4>
+                {% if p.match.winner == user %}
+                <span class="chip chip--success"><span data-icon="trophy" data-size="13"></span> Victory</span>
+                {% elif p.match.winner %}
+                <span class="chip chip--danger"><span data-icon="x" data-size="13"></span> Defeat</span>
+                {% else %}
+                <span class="chip chip--info"><span data-icon="equals" data-size="13"></span> Draw</span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <p class="mb-2">
+                    <strong>{{ p.problems_solved }}</strong> challenges solved
+                    <span class="chip {% if p.rating_change >= 0 %}chip--success{% else %}chip--danger{% endif %} ms-2">
+                        {{ p.rating_change|stringformat:'+d' }} RP
+                    </span>
+                </p>
+                <a class="btn btn-outline btn-sm mt-2" href="{% url 'match_result' p.match.id %}">
+                    View Replay Summary &rarr;
+                </a>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="card p-4 text-center">
+            <p class="text-muted mb-0">No completed duels yet. Enter the arena to play your first match!</p>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
