@@ -122,13 +122,15 @@ def _pick_problems(difficulty, target_rating, count=3):
     return selected
 
 
-def create_private_match(creator, difficulty, duration_minutes):
-    """Create a private match waiting for an opponent."""
+def create_private_match(creator, difficulty, duration_minutes, match_type='1v1'):
+    """Create a private match waiting for an opponent / team players."""
     match = Match.objects.create(
         status='waiting',
         difficulty=difficulty,
         duration_minutes=duration_minutes,
         is_private=True,
+        match_type=match_type,
     )
-    Participant.objects.create(match=match, user=creator)
+    initial_team = 'team_a' if match_type == '2v2' else 'none'
+    Participant.objects.create(match=match, user=creator, team=initial_team)
     return match

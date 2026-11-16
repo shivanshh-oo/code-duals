@@ -27,9 +27,13 @@ def leaderboard(request):
 def practice(request, problem_id):
     problem = get_object_or_404(Problem, pk=problem_id, is_draft=False)
     sample_tests = problem.test_cases.filter(is_sample=True)
+    total_tests_count = problem.test_cases.count()
+    hidden_tests_count = total_tests_count - sample_tests.count()
     return render(request, 'duels/practice.html', {
         'problem': problem,
         'sample_tests': sample_tests,
+        'total_tests_count': total_tests_count,
+        'hidden_tests_count': hidden_tests_count,
     })
 
 
@@ -75,9 +79,20 @@ def practice_submit(request, problem_id):
         else:
             safe_details.append({'test': i + 1, 'status': detail['status'], 'is_sample': False})
 
+    sample_count = len(sample_ids)
+    hidden_count = len(all_tests) - sample_count
+    passed_samples = sum(1 for d in safe_details if d['is_sample'] and d['status'] == 'Accepted')
+    passed_hidden = sum(1 for d in safe_details if not d['is_sample'] and d['status'] == 'Accepted')
+
     return JsonResponse({
-        'verdict': result['verdict'], 'tests_passed': result['tests_passed'],
-        'tests_total': result['tests_total'], 'details': safe_details,
+        'verdict': result['verdict'],
+        'tests_passed': result['tests_passed'],
+        'tests_total': result['tests_total'],
+        'sample_tests_count': sample_count,
+        'hidden_tests_count': hidden_count,
+        'passed_samples': passed_samples,
+        'passed_hidden': passed_hidden,
+        'details': safe_details,
     })
 
 
@@ -130,8 +145,11 @@ def quick_match_cancel(request):
 @login_required
 @require_POST
 def create_match(request):
-    """Create a private match with invite code."""
+    """Create a private match with invite code (1v1 or 2v2)."""
     difficulty = request.POST.get('difficulty', 'Medium')
+    match_type = request.POST.get('match_type', '1v1')
+    if match_type not in ('1v1', '2v2'):
+        match_type = '1v1'
     try:
         duration = int(request.POST.get('duration', 30))
     except ValueError:
@@ -140,10 +158,11 @@ def create_match(request):
         difficulty = 'Medium'
     duration = max(10, min(60, duration))
 
-    match = create_private_match(request.user, difficulty, duration)
+    match = create_private_match(request.user, difficulty, duration, match_type=match_type)
     return JsonResponse({
         'match_id': match.id,
         'invite_code': match.invite_code,
+        'match_type': match.match_type,
     })
 
 
@@ -164,16 +183,23 @@ def match_arena(request, match_id):
             'sample_tests': sample_tests,
         })
 
+    participants = list(match.participants.select_related('user').all())
+    team_a = [p for p in participants if p.team == 'team_a']
+    team_b = [p for p in participants if p.team == 'team_b']
+
     return render(request, 'duels/match_arena.html', {
         'match': match,
         'participant': participant,
+        'participants': participants,
+        'team_a': team_a,
+        'team_b': team_b,
         'problems_data': problems_data,
     })
 
 
 @login_required
 def match_status_api(request, match_id):
-    """JSON endpoint: time left, your solved count, opponent's solved count."""
+    """JSON endpoint: time left, team/solo solved counts, participant statuses."""
     match = get_object_or_404(Match, pk=match_id)
     participant = get_object_or_404(Participant, match=match, user=request.user)
 
@@ -185,17 +211,72 @@ def match_status_api(request, match_id):
     if match.ends_at and match.status == 'active':
         time_left = max(0, (match.ends_at - now).total_seconds())
 
-    # Get opponent info (solved count only, never code)
+    participants = list(match.participants.select_related('user').all())
+    total_problems = match.match_problems.count()
+
+    if match.match_type == '2v2':
+        team_a = [p for p in participants if p.team == 'team_a']
+        team_b = [p for p in participants if p.team == 'team_b']
+        solved_a = _team_solved_count(match, 'team_a')
+        solved_b = _team_solved_count(match, 'team_b')
+
+        my_team = participant.team
+        my_team_solved = solved_a if my_team == 'team_a' else solved_b
+        opp_team_solved = solved_b if my_team == 'team_a' else solved_a
+
+        roster = [{
+            'username': p.user.username,
+            'team': p.team,
+            'is_ready': p.is_ready,
+            'problems_solved': p.problems_solved,
+        } for p in participants]
+
+        return JsonResponse({
+            'status': match.status,
+            'match_type': '2v2',
+            'time_left': int(time_left),
+            'my_solved': participant.problems_solved,
+            'my_team': my_team,
+            'my_team_solved': my_team_solved,
+            'opp_team_solved': opp_team_solved,
+            'team_a_solved': solved_a,
+            'team_b_solved': solved_b,
+            'total_problems': total_problems,
+            'roster': roster,
+            'winner': match.winner.username if match.winner else None,
+        })
+
+    # 1v1
     opponent = match.participants.exclude(user=request.user).first()
     opp_solved = opponent.problems_solved if opponent else 0
 
     return JsonResponse({
         'status': match.status,
+        'match_type': '1v1',
         'time_left': int(time_left),
         'my_solved': participant.problems_solved,
         'opp_solved': opp_solved,
+        'total_problems': total_problems,
         'winner': match.winner.username if match.winner else None,
     })
+
+
+def _team_solved_count(match, team):
+    """Count how many distinct problems team solved."""
+    return Submission.objects.filter(
+        participant__match=match,
+        participant__team=team,
+        verdict='Accepted'
+    ).values('problem').distinct().count()
+
+
+def _team_solved_problem_ids(match, team):
+    """Set of problem IDs solved by team."""
+    return set(Submission.objects.filter(
+        participant__match=match,
+        participant__team=team,
+        verdict='Accepted'
+    ).values_list('problem_id', flat=True))
 
 
 @login_required
@@ -235,7 +316,7 @@ def match_submit(request, match_id, problem_id):
 
     # Update solved count
     if result['verdict'] == 'Accepted':
-        # Check if this problem wasn't already solved
+        # Check if this problem wasn't already solved by this user
         already_solved = Submission.objects.filter(
             participant=participant, problem=problem, verdict='Accepted'
         ).count()
@@ -244,16 +325,29 @@ def match_submit(request, match_id, problem_id):
             participant.save()
 
     broadcast(match, 'opponent_progress')
-    # Check if both finished all problems
-    total_problems = match.match_problems.count()
-    all_participants = match.participants.all()
-    if all(p.problems_solved >= total_problems for p in all_participants):
-        _finish_match(match)
 
+    total_problems = match.match_problems.count()
+    all_participants = list(match.participants.all())
+
+    if match.match_type == '2v2':
+        # Team collaborative completion: if Team A or Team B solved all problems
+        solved_a = _team_solved_count(match, 'team_a')
+        solved_b = _team_solved_count(match, 'team_b')
+        if (total_problems > 0 and (solved_a >= total_problems or solved_b >= total_problems)) or all(p.problems_solved >= total_problems for p in all_participants):
+            _finish_match(match)
+    else:
+        # Check if both finished all problems
+        if total_problems > 0 and all(p.problems_solved >= total_problems for p in all_participants):
+            _finish_match(match)
+
+    sample_count = problem.test_cases.filter(is_sample=True).count()
+    hidden_count = all_tests.count() - sample_count
     return JsonResponse({
         'verdict': result['verdict'],
         'tests_passed': result['tests_passed'],
         'tests_total': result['tests_total'],
+        'sample_tests_count': sample_count,
+        'hidden_tests_count': hidden_count,
     })
 
 
@@ -273,7 +367,46 @@ def _finish_match(match):
     match.status = 'finished'
     participants = list(match.participants.all())
 
-    if len(participants) == 2:
+    if match.match_type == '2v2':
+        from .rating import update_ratings_2v2
+        team_a = [p for p in participants if p.team == 'team_a']
+        team_b = [p for p in participants if p.team == 'team_b']
+
+        a_abandoned = any(p.abandoned for p in team_a)
+        b_abandoned = any(p.abandoned for p in team_b)
+
+        solved_a = _team_solved_count(match, 'team_a')
+        solved_b = _team_solved_count(match, 'team_b')
+
+        winning_team = None
+        if a_abandoned and not b_abandoned:
+            winning_team = 'team_b'
+        elif b_abandoned and not a_abandoned:
+            winning_team = 'team_a'
+        elif solved_a > solved_b:
+            winning_team = 'team_a'
+        elif solved_b > solved_a:
+            winning_team = 'team_b'
+        else:
+            time_a = sum(_total_time(p) for p in team_a)
+            time_b = sum(_total_time(p) for p in team_b)
+            if time_a < time_b:
+                winning_team = 'team_a'
+            elif time_b < time_a:
+                winning_team = 'team_b'
+
+        if winning_team == 'team_a' and team_a:
+            match.winner = team_a[0].user  # Represents winning side
+            for p in team_a:
+                _award(p.user, 'team_victory', 'Squad Goals', 'Won a 2v2 Team Duel', 'W', 250)
+        elif winning_team == 'team_b' and team_b:
+            match.winner = team_b[0].user
+            for p in team_b:
+                _award(p.user, 'team_victory', 'Squad Goals', 'Won a 2v2 Team Duel', 'W', 250)
+
+        update_ratings_2v2(match, team_a, team_b, winning_team)
+
+    elif len(participants) == 2:
         p1, p2 = participants
         if p1.abandoned:
             match.winner = p2.user
@@ -321,15 +454,47 @@ def match_result(request, match_id):
     """Show match result with rating changes."""
     match = get_object_or_404(Match, pk=match_id, status='finished')
     get_object_or_404(Participant, match=match, user=request.user)
-    participants = match.participants.select_related('user', 'user__profile').all()
+    participants = list(match.participants.select_related('user', 'user__profile').all())
 
     my_participant = None
     opp_participant = None
+    team_a_participants = []
+    team_b_participants = []
+
     for p in participants:
+        if p.team == 'team_a':
+            team_a_participants.append(p)
+        elif p.team == 'team_b':
+            team_b_participants.append(p)
+
         if p.user == request.user:
             my_participant = p
         else:
-            opp_participant = p
+            if opp_participant is None:
+                opp_participant = p
+
+    # Determine 2v2 outcome for user
+    user_won = False
+    winning_team = None
+    if match.match_type == '2v2':
+        solved_a = _team_solved_count(match, 'team_a')
+        solved_b = _team_solved_count(match, 'team_b')
+        if solved_a > solved_b:
+            winning_team = 'team_a'
+        elif solved_b > solved_a:
+            winning_team = 'team_b'
+        else:
+            time_a = sum(_total_time(p) for p in team_a_participants)
+            time_b = sum(_total_time(p) for p in team_b_participants)
+            if time_a < time_b:
+                winning_team = 'team_a'
+            elif time_b < time_a:
+                winning_team = 'team_b'
+        if winning_team and my_participant and my_participant.team == winning_team:
+            user_won = True
+    else:
+        if match.winner == request.user:
+            user_won = True
 
     # Get problems for solution unlock
     match_problems = match.match_problems.select_related('problem').all()
@@ -338,6 +503,10 @@ def match_result(request, match_id):
         'match': match,
         'my_participant': my_participant,
         'opp_participant': opp_participant,
+        'team_a_participants': team_a_participants,
+        'team_b_participants': team_b_participants,
+        'winning_team': winning_team,
+        'user_won': user_won,
         'match_problems': match_problems,
     })
 
@@ -349,10 +518,18 @@ def join_match(request, invite_code):
     if request.method == 'POST':
         with transaction.atomic():
             match = Match.objects.select_for_update().get(pk=match.pk)
+            max_players = 4 if match.match_type == '2v2' else 2
             if not match.participants.filter(user=request.user).exists():
-                if match.status != 'waiting' or match.participants.count() >= 2:
+                if match.status != 'waiting' or match.participants.count() >= max_players:
                     return JsonResponse({'error': 'Room unavailable'}, status=400)
-                Participant.objects.create(match=match, user=request.user)
+                
+                initial_team = 'none'
+                if match.match_type == '2v2':
+                    count_a = match.participants.filter(team='team_a').count()
+                    count_b = match.participants.filter(team='team_b').count()
+                    initial_team = 'team_a' if count_a <= count_b else 'team_b'
+
+                Participant.objects.create(match=match, user=request.user, team=initial_team)
                 broadcast(match, 'player_joined')
         return redirect('match_arena', match_id=match.pk)
     return render(request, 'duels/join.html', {'match': match})
@@ -366,6 +543,33 @@ def broadcast(match, event):
 
 @login_required
 @require_POST
+def switch_team(request, match_id):
+    """Switch teams in a 2v2 lobby."""
+    from django.db import transaction
+    with transaction.atomic():
+        match = get_object_or_404(Match.objects.select_for_update(), pk=match_id)
+        if match.match_type != '2v2' or match.status != 'waiting':
+            return JsonResponse({'error': 'Cannot switch teams now'}, status=400)
+        player = get_object_or_404(Participant.objects.select_for_update(), match=match, user=request.user)
+        target_team = request.POST.get('team')
+        if target_team not in ('team_a', 'team_b'):
+            target_team = 'team_b' if player.team == 'team_a' else 'team_a'
+
+        # Check slot availability (max 2 per team)
+        team_count = match.participants.filter(team=target_team).exclude(pk=player.pk).count()
+        if team_count >= 2:
+            return JsonResponse({'error': f'{target_team.replace("_", " ").title()} is full'}, status=400)
+
+        player.team = target_team
+        player.is_ready = False  # Reset ready on switch
+        player.save(update_fields=['team', 'is_ready'])
+        broadcast(match, 'roster_changed')
+
+    return JsonResponse({'status': 'ok', 'team': player.team})
+
+
+@login_required
+@require_POST
 def ready_match(request, match_id):
     from django.db import transaction
     with transaction.atomic():
@@ -375,7 +579,21 @@ def ready_match(request, match_id):
             player.is_ready = not player.is_ready
             player.save()
             broadcast(match, 'player_ready')
-            if match.participants.count() == 2 and not match.participants.filter(is_ready=False).exists():
+            
+            # Check start conditions
+            required_count = 4 if match.match_type == '2v2' else 2
+            current_count = match.participants.count()
+            all_ready = not match.participants.filter(is_ready=False).exists()
+
+            can_start = False
+            if match.match_type == '2v2':
+                count_a = match.participants.filter(team='team_a').count()
+                count_b = match.participants.filter(team='team_b').count()
+                can_start = (current_count == 4 and count_a == 2 and count_b == 2 and all_ready)
+            else:
+                can_start = (current_count == 2 and all_ready)
+
+            if can_start:
                 problems = _pick_problems(match.difficulty, request.user.profile.rating)
                 if not problems:
                     return JsonResponse({'error': 'No problems available'}, status=400)

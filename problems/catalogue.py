@@ -5,8 +5,11 @@ from .models import Problem
 
 
 def sync_catalogue(source, limit=0):
+    if source == 'codeforces':
+        from .codeforces import sync_codeforces_catalogue
+        return sync_codeforces_catalogue(limit=limit)
     if source != 'leetcode':
-        raise ValueError('Only LeetCode catalogue sync is supported.')
+        raise ValueError('Only leetcode and codeforces catalogue sync is supported.')
     url = 'https://leetcode.com/api/problems/all/'
     response = requests.get(url, timeout=30)
     response.raise_for_status()

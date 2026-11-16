@@ -10,7 +10,7 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('--limit', type=int, default=0, help='0 imports all questions')
-        parser.add_argument('--source', choices=['leetcode'], default='leetcode')
+        parser.add_argument('--source', choices=['leetcode', 'codeforces'], default='leetcode')
         parser.add_argument('--watch', action='store_true')
         parser.add_argument('--interval', type=int, default=3600)
 

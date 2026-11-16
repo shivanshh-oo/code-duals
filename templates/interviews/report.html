@@ -1,0 +1,168 @@
+{% extends 'base.html' %}
+
+{% block title %}Interview Performance Report: {{ track.title }} - CodeDuels{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-3">
+    <div class="col-lg-10">
+        <!-- Diagnostic Summary Header Card -->
+        <div class="card text-center fade-in p-4 mb-4" style="background:#fff;border-top:5px solid var(--periwinkle);">
+            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                <span class="chip chip--yellow"><span data-icon="terminal" data-size="14"></span> CANDIDATE COMPARISON REPORT</span>
+                <span class="text-muted small">Completed: {{ session.completed_at|date:"M j, Y, H:i" }}</span>
+            </div>
+
+            <h1 class="mb-1">{{ track.title }}</h1>
+            <p class="text-primary fw-bold mb-3">{{ track.target_role }}</p>
+
+            <!-- Percentile Highlight -->
+            <div class="p-3 my-3 rounded" style="background:var(--pale-blue);">
+                <h2 class="text-success mb-1" style="font-size:2.2rem;">
+                    Top {{ percentile }}% Percentile
+                </h2>
+                <p class="text-muted mb-0">
+                    You performed higher than <strong>{{ percentile }}%</strong> of candidates who took this interview (based on {{ total_attempts }} attempt{{ total_attempts|pluralize }}).
+                </p>
+            </div>
+
+            <!-- Macro Stats Row -->
+            <div class="row g-3 my-2 text-start">
+                <div class="col-md-3">
+                    <div class="stat-tile">
+                        <div class="stat-tile__value">{{ session.total_score }}%</div>
+                        <div class="stat-tile__label">Overall Score</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-tile">
+                        <div class="stat-tile__value">{{ user_time_minutes }}m</div>
+                        <div class="stat-tile__label">Time Taken (Avg: {{ avg_time_minutes }}m)</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-tile">
+                        <div class="stat-tile__value">{% widthratio session.tests_passed_ratio 1 100 %}%</div>
+                        <div class="stat-tile__label">Test Cases Passed</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-tile">
+                        <div class="stat-tile__value">{{ avg_score }}%</div>
+                        <div class="stat-tile__label">Cohort Avg Score</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Skill Dimensions Breakdown -->
+        <div class="card fade-in mb-4 p-4">
+            <h3 class="mb-3"><span data-icon="chart"></span> Competency & Skill Dimensions</h3>
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="p-3 border rounded">
+                        <div class="d-flex justify-content-between mb-1">
+                            <strong>Edge-Case & Test Coverage</strong>
+                            <span>{{ skill_edge_cases }}%</span>
+                        </div>
+                        <div class="progress" style="height:10px;">
+                            <div class="progress-bar bg-success" role="progressbar" style="width: {{ skill_edge_cases }}%"></div>
+                        </div>
+                        <small class="text-muted mt-2 d-block">Measures precision across comprehensive hidden test suites.</small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="p-3 border rounded">
+                        <div class="d-flex justify-content-between mb-1">
+                            <strong>Implementation Speed</strong>
+                            <span>{{ skill_speed }}%</span>
+                        </div>
+                        <div class="progress" style="height:10px;">
+                            <div class="progress-bar bg-primary" role="progressbar" style="width: {{ skill_speed }}%"></div>
+                        </div>
+                        <small class="text-muted mt-2 d-block">Pace relative to the {{ track.time_limit_minutes }} minute exam deadline.</small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="p-3 border rounded">
+                        <div class="d-flex justify-content-between mb-1">
+                            <strong>Runtime Efficiency</strong>
+                            <span>{{ skill_optimization }}%</span>
+                        </div>
+                        <div class="progress" style="height:10px;">
+                            <div class="progress-bar bg-info" role="progressbar" style="width: {{ skill_optimization }}%"></div>
+                        </div>
+                        <small class="text-muted mt-2 d-block">Algorithmic complexity and execution latency.</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Problem-by-Problem Scorecard Table -->
+        <div class="card fade-in mb-4">
+            <div class="card-header">
+                <h3 style="margin:0"><span data-icon="book"></span> Stage-by-Stage Performance Scorecard</h3>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Stage & Challenge</th>
+                            <th>Difficulty</th>
+                            <th>Verdict</th>
+                            <th>Test Pass Rate</th>
+                            <th>Hidden Tests</th>
+                            <th>Latency</th>
+                            <th>Submissions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sc in scorecard %}
+                        <tr>
+                            <td>
+                                <strong>Stage {{ sc.order }}: {{ sc.title }}</strong><br>
+                                <small class="text-muted">{{ sc.phase }}</small>
+                            </td>
+                            <td>
+                                <span class="chip {% if sc.difficulty == 'Easy' %}chip--diff-easy{% elif sc.difficulty == 'Medium' %}chip--diff-medium{% else %}chip--diff-hard{% endif %}">
+                                    {{ sc.difficulty }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="chip {% if sc.verdict == 'Accepted' %}chip--success{% elif sc.verdict == 'Unattempted' %}chip--warning{% else %}chip--danger{% endif %}">
+                                    {{ sc.verdict }}
+                                </span>
+                            </td>
+                            <td>
+                                <strong>{{ sc.tests_passed }}/{{ sc.tests_total }}</strong>
+                            </td>
+                            <td>
+                                <span class="text-muted">{{ sc.hidden_count }} hidden</span>
+                            </td>
+                            <td>
+                                {{ sc.runtime_ms }} ms
+                            </td>
+                            <td>
+                                {{ sc.attempts }} attempt{{ sc.attempts|pluralize }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-center gap-3 mb-5">
+            <a href="{% url 'interview_tracks' %}" class="btn btn-yellow btn-lg">
+                <span data-icon="terminal"></span> All Interview Tracks
+            </a>
+            <form method="post" action="{% url 'start_interview' track.id %}">
+                {% csrf_token %}
+                <button class="btn btn-outline btn-lg">
+                    <span data-icon="refresh"></span> Retake Interview
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

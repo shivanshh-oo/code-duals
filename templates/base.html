@@ -47,6 +47,10 @@
                 <span class="cd-nav-icon" data-icon="trophy" data-size="18"></span>
                 <span class="cd-nav-label">Leaderboard</span>
             </a>
+            <a href="{% url 'interview_tracks' %}" title="Interview Practice">
+                <span class="cd-nav-icon" data-icon="terminal" data-size="18"></span>
+                <span class="cd-nav-label">Interviews</span>
+            </a>
             {% if user.is_authenticated %}
             <a href="{% url 'daily_challenge' %}" title="Daily Challenge">
                 <span class="cd-nav-icon" data-icon="calendar" data-size="18"></span>

@@ -20,7 +20,10 @@
         </div>
     </div>
     <div class="card-body">
-        <p class="text-muted"><span data-icon="clock" data-size="14"></span> <strong>Time Limit:</strong> {{ problem.time_limit_sec }} seconds</p>
+        <p class="text-muted mb-2">
+            <span data-icon="clock" data-size="14"></span> <strong>Time Limit:</strong> {{ problem.time_limit_sec }} seconds &nbsp;&bull;&nbsp;
+            <span data-icon="terminal" data-size="14"></span> <strong>Test Suite:</strong> {{ total_tests_count }} test cases ({{ sample_tests_count }} sample, {{ hidden_tests_count }} hidden)
+        </p>
         <hr style="border:0;border-top:1.5px dashed var(--pale-blue-d);margin:14px 0;">
         <div>{{ problem.statement|linebreaks }}</div>
     </div>

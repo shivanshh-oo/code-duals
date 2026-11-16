@@ -16,6 +16,7 @@ urlpatterns = [
     path('spectate/<int:match_id>/status/', views.spectator_status, name='spectator_status'),
     path('join/<str:invite_code>/', views.join_match, name='join_match'),
     path('match/<int:match_id>/ready/', views.ready_match, name='ready_match'),
+    path('match/<int:match_id>/switch-team/', views.switch_team, name='switch_team'),
     path('leaderboard/export/', views.leaderboard_csv, name='leaderboard_csv'),
     path('play/', views.play, name='play'),
     path('leaderboard/', views.leaderboard, name='leaderboard'),

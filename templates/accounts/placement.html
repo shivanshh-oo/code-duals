@@ -149,7 +149,7 @@ function submitPlacement() {
             html += `<tr>
                 <td><strong>${r.problem}</strong></td>
                 <td><span class="chip ${cls}">${r.verdict}</span></td>
-                <td>${r.tests_passed}/${r.tests_total}</td>
+                <td>${r.tests_passed}/${r.tests_total} <small class="text-muted">(${r.hidden_tests_count || 0} hidden)</small></td>
             </tr>`;
         });
         html += '</tbody></table>';

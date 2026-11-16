@@ -47,6 +47,36 @@ Quick matchmaking, private invite rooms with ready toggles, participant-only Web
 Run `python manage.py test duels` for the two-session integration tests.
 Run `python manage.py import_problems --limit 100` to import metadata. Add statements and test cases in Admin before publishing drafts.
 
+## Codeforces Questions
+
+Import the built-in curated set of Codeforces problems with **auto-generated test cases** (30 per problem — 3 visible + 27 hidden):
+
+```bash
+python manage.py import_codeforces
+```
+
+Options:
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `--sample N` | 3 | Visible sample test cases per problem |
+| `--hidden N` | 27 | Hidden test cases per problem |
+
+This seeds ~25 hand-curated Codeforces-style problems (Easy → Hard) covering
+standard I/O topics such as number theory, DP, graphs, and strings. Problems
+are published immediately and available to players.
+
+To instead sync **metadata-only drafts** from the live Codeforces API (no test cases; requires internet):
+
+```bash
+python manage.py import_codeforces --catalogue
+python manage.py import_codeforces --catalogue --watch --interval 3600
+python manage.py import_codeforces --catalogue --tags "dp;greedy" --limit 100
+```
+
+Catalogue drafts appear in the question bank only after adding a statement and
+test cases via Admin or `import_problem_bundle`.
+
 ## Automatic question updates
 
 In a second terminal with the same Python environment, run:

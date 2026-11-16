@@ -43,6 +43,8 @@ def problem_detail(request, pk):
     """Problem detail page with statement and sample test cases."""
     problem = get_object_or_404(Problem.objects.filter(Q(is_draft=False) | Q(is_draft=True, test_cases__is_sample=True)).distinct(), pk=pk)
     sample_tests = problem.test_cases.filter(is_sample=True)
+    total_tests_count = problem.test_cases.count()
+    hidden_tests_count = total_tests_count - sample_tests.count()
 
     # Check if user can see the solution
     can_see_solution = False
@@ -59,6 +61,8 @@ def problem_detail(request, pk):
     return render(request, 'problems/problem_detail.html', {
         'problem': problem,
         'sample_tests': sample_tests,
+        'total_tests_count': total_tests_count,
+        'hidden_tests_count': hidden_tests_count,
         'can_see_solution': can_see_solution,
         'solution': solution,
     })

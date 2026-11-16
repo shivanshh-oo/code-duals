@@ -24,6 +24,7 @@ INSTALLED_APPS = [
     'accounts',
     'problems',
     'duels',
+    'interviews',
 ]
 
 MIDDLEWARE = [

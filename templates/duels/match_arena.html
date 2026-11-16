@@ -28,8 +28,14 @@
 {% if match.status == 'waiting' %}
 <div class="card mb-4 fade-in" style="background:var(--pale-blue);border-color:var(--periwinkle);">
     <div class="card-body">
-        <h4 class="mb-2"><span data-icon="users"></span> Waiting for Opponent</h4>
-        <p class="mb-3">Share this invite link with your rival to duel:</p>
+        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+            <h4 class="mb-0">
+                <span data-icon="users"></span> 
+                {% if match.match_type == '2v2' %}2v2 Squad Lobby{% else %}Waiting for Opponent{% endif %}
+            </h4>
+            <span class="chip chip--yellow">Format: <strong>{{ match.get_match_type_display }}</strong></span>
+        </div>
+        <p class="mb-3">Share this invite link with players to join:</p>
         <div class="d-flex gap-2 mb-3" style="flex-wrap:wrap;">
             <input class="form-control" style="background:#fff;max-width:480px;" value="/duels/join/{{ match.invite_code }}/" readonly id="inviteLink">
             <script>document.getElementById('inviteLink').value = new URL(document.getElementById('inviteLink').value, location.origin).href;</script>
@@ -51,10 +57,78 @@
             }
             </script>
         </div>
-        <form method="post" action="{% url 'ready_match' match.id %}">
-            {% csrf_token %}
-            <button class="btn btn-yellow"><span data-icon="check"></span> Ready Up</button>
-        </form>
+
+        {% if match.match_type == '2v2' %}
+        <div class="row g-3 mb-4">
+            <!-- Team A -->
+            <div class="col-md-6">
+                <div class="card p-3" style="background:#fff;border-left:4px solid var(--primary, #3b82f6);">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="mb-0 text-primary">Team A (Blue)</h5>
+                        {% if participant.team != 'team_a' and team_a|length < 2 %}
+                        <button class="btn btn-sm btn-outline-primary" onclick="switchTeam('team_a')">Join Team A</button>
+                        {% endif %}
+                    </div>
+                    <ul class="list-group list-group-flush" id="teamAList">
+                        {% for p in team_a %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <span><strong>{{ p.user.username }}</strong> {% if p.user == user %}<span class="badge bg-secondary">You</span>{% endif %}</span>
+                            <span class="chip {% if p.is_ready %}chip--success{% else %}chip--warning{% endif %}">
+                                {% if p.is_ready %}Ready{% else %}Not Ready{% endif %}
+                            </span>
+                        </li>
+                        {% empty %}
+                        <li class="list-group-item text-muted px-0">Slot 1: Empty</li>
+                        {% endfor %}
+                        {% if team_a|length == 1 %}
+                        <li class="list-group-item text-muted px-0">Slot 2: Empty</li>
+                        {% elif team_a|length == 0 %}
+                        <li class="list-group-item text-muted px-0">Slot 2: Empty</li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Team B -->
+            <div class="col-md-6">
+                <div class="card p-3" style="background:#fff;border-left:4px solid var(--danger, #ef4444);">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="mb-0 text-danger">Team B (Red)</h5>
+                        {% if participant.team != 'team_b' and team_b|length < 2 %}
+                        <button class="btn btn-sm btn-outline-danger" onclick="switchTeam('team_b')">Join Team B</button>
+                        {% endif %}
+                    </div>
+                    <ul class="list-group list-group-flush" id="teamBList">
+                        {% for p in team_b %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <span><strong>{{ p.user.username }}</strong> {% if p.user == user %}<span class="badge bg-secondary">You</span>{% endif %}</span>
+                            <span class="chip {% if p.is_ready %}chip--success{% else %}chip--warning{% endif %}">
+                                {% if p.is_ready %}Ready{% else %}Not Ready{% endif %}
+                            </span>
+                        </li>
+                        {% empty %}
+                        <li class="list-group-item text-muted px-0">Slot 3: Empty</li>
+                        {% endfor %}
+                        {% if team_b|length == 1 %}
+                        <li class="list-group-item text-muted px-0">Slot 4: Empty</li>
+                        {% elif team_b|length == 0 %}
+                        <li class="list-group-item text-muted px-0">Slot 4: Empty</li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <p class="text-muted small mb-3">Both teams must have exactly 2 players and all 4 players must ready up to begin the match.</p>
+        {% endif %}
+
+        <div class="d-flex gap-2">
+            <form method="post" action="{% url 'ready_match' match.id %}">
+                {% csrf_token %}
+                <button class="btn {% if participant.is_ready %}btn-outline{% else %}btn-yellow{% endif %}">
+                    <span data-icon="check"></span> {% if participant.is_ready %}Cancel Ready{% else %}Ready Up{% endif %}
+                </button>
+            </form>
+        </div>
     </div>
 </div>
 {% endif %}
@@ -153,13 +227,33 @@ async function refresh(){
         const d=await r.json();
         if(d.status==='finished') location.href='{% url "match_result" match.id %}';
         if(d.status==='active'&&'{{ match.status }}'==='waiting') location.reload();
+        if(d.status==='waiting'&&'{{ match.status }}'==='waiting') {
+            // Re-render lobby or reload if roster changed
+        }
         const mins = Math.floor(d.time_left/60);
         const secs = String(d.time_left%60).padStart(2,'0');
-        document.getElementById('status').innerHTML = `<span data-icon="clock" data-size="14"></span> ${mins}:${secs} remaining &nbsp;|&nbsp; You: <strong>${d.my_solved}</strong> &nbsp;vs&nbsp; Rival: <strong>${d.opp_solved}</strong>`;
+
+        if(d.match_type==='2v2') {
+            const myTeamLabel = d.my_team === 'team_a' ? 'Team A (You)' : 'Team B (You)';
+            const oppTeamLabel = d.my_team === 'team_a' ? 'Team B' : 'Team A';
+            document.getElementById('status').innerHTML = `<span data-icon="clock" data-size="14"></span> ${mins}:${secs} &nbsp;|&nbsp; ${myTeamLabel}: <strong>${d.my_team_solved}/${d.total_problems}</strong> &nbsp;vs&nbsp; ${oppTeamLabel}: <strong>${d.opp_team_solved}/${d.total_problems}</strong>`;
+        } else {
+            document.getElementById('status').innerHTML = `<span data-icon="clock" data-size="14"></span> ${mins}:${secs} remaining &nbsp;|&nbsp; You: <strong>${d.my_solved}</strong> &nbsp;vs&nbsp; Rival: <strong>${d.opp_solved}</strong>`;
+        }
         if (window.CD && window.CD.hydrateIcons) window.CD.hydrateIcons(document.getElementById('status'));
     } catch(e) {
         document.getElementById('status').textContent='Reconnecting...';
     }
+}
+
+async function switchTeam(teamName) {
+    const fd = new FormData();
+    fd.append('team', teamName);
+    fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+    const res = await fetch('{% url "switch_team" match.id %}', {method: 'POST', body: fd});
+    const data = await res.json();
+    if(data.error) alert(data.error);
+    else location.reload();
 }
 
 document.querySelectorAll('.solution').forEach(f=>f.onsubmit=async e=>{
@@ -175,7 +269,8 @@ document.querySelectorAll('.solution').forEach(f=>f.onsubmit=async e=>{
             msgEl.innerHTML = `<span class="chip chip--danger">${d.error}</span>`;
         } else {
             const cls = d.verdict === 'Accepted' ? 'chip--success' : 'chip--danger';
-            msgEl.innerHTML = `<span class="chip ${cls}">${d.verdict}</span> <small class="text-muted ms-2">${d.tests_passed}/${d.tests_total} tests</small>`;
+            const hiddenMsg = d.hidden_tests_count ? ` (${d.hidden_tests_count} hidden)` : '';
+            msgEl.innerHTML = `<span class="chip ${cls}">${d.verdict}</span> <small class="text-muted ms-2">${d.tests_passed}/${d.tests_total} tests passed${hiddenMsg}</small>`;
         }
         refresh();
     } catch(e) {
@@ -188,7 +283,18 @@ document.querySelectorAll('.solution').forEach(f=>f.onsubmit=async e=>{
 });
 
 const ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws/duel/{{ match.invite_code }}/');
-ws.onmessage=refresh;
+ws.onmessage = (e) => {
+    try {
+        const msg = JSON.parse(e.data);
+        if (msg.event === 'player_joined' || msg.event === 'player_ready' || msg.event === 'roster_changed' || msg.event === 'match_started') {
+            if ('{{ match.status }}' === 'waiting') {
+                location.reload();
+                return;
+            }
+        }
+    } catch(err) {}
+    refresh();
+};
 setInterval(refresh,2000);
 refresh();
 </script>
