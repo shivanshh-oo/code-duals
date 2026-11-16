@@ -44,7 +44,9 @@ def practice_submit(request, problem_id):
         return JsonResponse({'error': 'No code submitted'}, status=400)
 
     all_tests = problem.test_cases.all()
-    result = judge_submission(code, all_tests, problem.time_limit_sec)
+    result = judge_submission(code, all_tests, problem.time_limit_sec, request.POST.get('language', 'python'))
+    if result.get('error'):
+        return JsonResponse({'error': result['error']}, status=400)
 
     # Save submission for unlock tracking
     practice_match, _ = Match.objects.get_or_create(
@@ -215,7 +217,9 @@ def match_submit(request, match_id, problem_id):
 
     # Judge
     all_tests = problem.test_cases.all()
-    result = judge_submission(code, all_tests, problem.time_limit_sec)
+    result = judge_submission(code, all_tests, problem.time_limit_sec, request.POST.get('language', 'python'))
+    if result.get('error'):
+        return JsonResponse({'error': result['error']}, status=400)
 
     # Calculate time taken since match start
     time_taken = 0

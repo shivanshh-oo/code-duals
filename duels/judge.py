@@ -7,9 +7,10 @@ import sys
 import tempfile
 import os
 import time
+import shutil
 
 
-def judge_submission(code, test_cases, time_limit_sec=5):
+def judge_submission(code, test_cases, time_limit_sec=5, language='python'):
     """
     Run code against test cases and return the verdict.
 
@@ -23,6 +24,27 @@ def judge_submission(code, test_cases, time_limit_sec=5):
     """
     test_cases = list(test_cases)
     tests_total = len(test_cases)
+    if language not in ('python', 'cpp'):
+        return {'verdict': 'Error', 'tests_passed': 0, 'tests_total': tests_total, 'runtime_ms': 0, 'details': [], 'error': 'Unsupported language'}
+    if language == 'cpp':
+        compiler = shutil.which('g++')
+        if not compiler:
+            return {'verdict': 'Error', 'tests_passed': 0, 'tests_total': tests_total, 'runtime_ms': 0, 'details': [], 'error': 'C++ requires g++ on the server PATH.'}
+        with tempfile.TemporaryDirectory() as directory:
+            source = os.path.join(directory, 'main.cpp')
+            executable = os.path.join(directory, 'main.exe' if os.name == 'nt' else 'main')
+            with open(source, 'w', encoding='utf-8') as stream:
+                stream.write(code)
+            try:
+                compiled = subprocess.run([compiler, '-std=c++17', '-O2', source, '-o', executable], capture_output=True, text=True, timeout=30)
+                if compiled.returncode:
+                    raise ValueError(compiled.stderr[:2000])
+            except (OSError, ValueError, subprocess.TimeoutExpired) as error:
+                return {'verdict': 'Error', 'tests_passed': 0, 'tests_total': tests_total, 'runtime_ms': 0, 'details': [], 'error': 'Compilation failed: ' + str(error)}
+            details = [_run_single_test(executable, tc.input, tc.expected_output, time_limit_sec, native=True) for tc in test_cases]
+            passed = sum(item['passed'] for item in details)
+            verdict = 'Accepted' if tests_total and passed == tests_total else 'Time Limit' if any(item['status'] == 'Time Limit' for item in details) else 'Error' if not tests_total or any(item['status'] == 'Error' for item in details) else 'Wrong Answer'
+            return {'verdict': verdict, 'tests_passed': passed, 'tests_total': tests_total, 'runtime_ms': sum(item['runtime_ms'] for item in details), 'details': details}
     if not tests_total:
         return {'verdict': 'Error', 'tests_passed': 0, 'tests_total': 0, 'runtime_ms': 0, 'details': []}
     tests_passed = 0
@@ -65,12 +87,12 @@ def judge_submission(code, test_cases, time_limit_sec=5):
     }
 
 
-def _run_single_test(code_path, input_data, expected_output, time_limit_sec):
+def _run_single_test(code_path, input_data, expected_output, time_limit_sec, native=False):
     """Run code against a single test case."""
     try:
         started = time.perf_counter()
         result = subprocess.run(
-            [sys.executable, code_path],
+            [code_path] if native else [sys.executable, code_path],
             input=input_data,
             capture_output=True,
             text=True,

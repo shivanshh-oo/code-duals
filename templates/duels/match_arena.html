@@ -31,8 +31,25 @@
         <h4 class="mb-2"><span data-icon="users"></span> Waiting for Opponent</h4>
         <p class="mb-3">Share this invite link with your rival to duel:</p>
         <div class="d-flex gap-2 mb-3" style="flex-wrap:wrap;">
-            <input class="form-control" style="background:#fff;max-width:480px;" value="{{ request.scheme }}://{{ request.get_host }}/duels/join/{{ match.invite_code }}/" readonly id="inviteLink">
-            <button class="btn btn-yellow btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('inviteLink').value);this.textContent='Copied!';">Copy Link</button>
+            <input class="form-control" style="background:#fff;max-width:480px;" value="/duels/join/{{ match.invite_code }}/" readonly id="inviteLink">
+            <script>document.getElementById('inviteLink').value = new URL(document.getElementById('inviteLink').value, location.origin).href;</script>
+            <button class="btn btn-yellow btn-sm" onclick="copyInviteLink(this)">Copy Link</button>
+            <script>
+            async function copyInviteLink(button) {
+                const input = document.getElementById('inviteLink');
+                try {
+                    if (navigator.clipboard && window.isSecureContext) {
+                        await navigator.clipboard.writeText(input.value);
+                    } else {
+                        input.focus(); input.select();
+                        if (!document.execCommand('copy')) throw new Error('Copy unavailable');
+                    }
+                    button.textContent = 'Copied!';
+                } catch (error) {
+                    input.focus(); input.select(); button.textContent = 'Press Ctrl+C';
+                }
+            }
+            </script>
         </div>
         <form method="post" action="{% url 'ready_match' match.id %}">
             {% csrf_token %}
@@ -99,6 +116,7 @@ Expected Output:
             <div class="workspace-compiler-column">
                 <form class="solution compiler-box-wrapper" action="{% url 'match_submit' match.id item.problem.id %}">
                     {% csrf_token %}
+                    <label>Language <select name="language" class="form-select"><option value="python">Python 3</option><option value="cpp">C++17</option></select></label>
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <label class="form-label mb-0"><strong><span data-icon="terminal" data-size="15"></span> Python Compiler & Solution</strong></label>
                         <span class="text-muted" style="font-size:.8rem;">Use <code>input()</code> and <code>print()</code></span>

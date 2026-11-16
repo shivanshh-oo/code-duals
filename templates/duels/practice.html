@@ -63,7 +63,8 @@
     <div class="workspace-compiler-column">
         <div class="card mb-3 fade-in" style="overflow:hidden;padding:0;">
             <div class="card-header p-3" style="border-bottom:1.5px solid var(--pale-blue-d);margin:0;padding:14px 20px !important;">
-                <h5 class="mb-0"><span data-icon="terminal" data-size="16"></span> Python 3 Editor</h5>
+                <h5 class="mb-0">Code Editor</h5>
+                <label>Language <select id="language" class="form-select"><option value="python">Python 3</option><option value="cpp">C++17</option></select></label>
                 <button id="submitBtn" class="btn btn-yellow btn-sm" onclick="submitCode()">
                     <span data-icon="terminal"></span> Submit Code
                 </button>
@@ -115,7 +116,7 @@ function submitCode() {
             'Content-Type': 'application/x-www-form-urlencoded',
             'X-CSRFToken': csrfToken,
         },
-        body: 'code=' + encodeURIComponent(code) + '&csrfmiddlewaretoken=' + csrfToken,
+        body: 'code=' + encodeURIComponent(code) + '&language=' + document.getElementById('language').value + '&csrfmiddlewaretoken=' + csrfToken,
     })
     .then(r => r.json())
     .then(data => {
