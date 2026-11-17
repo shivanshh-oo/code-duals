@@ -84,6 +84,69 @@ class DuelFlowTests(TestCase):
         self.assertEqual(a.get('/duels/history/').status_code, 200)
         self.assertEqual(b.get('/duels/notifications/').status_code, 200)
 
+    def test_2v2_lobby_teams_and_scoring(self):
+        users = []
+        clients = []
+        for name in ['p1', 'p2', 'p3', 'p4']:
+            u = User.objects.create_user(name, password='pwd')
+            u.profile.placement_done = True
+            u.profile.save()
+            c = Client()
+            c.force_login(u)
+            users.append(u)
+            clients.append(c)
+
+        c1, c2, c3, c4 = clients
+        # 1. Host creates 2v2 match
+        resp = c1.post('/duels/create-match/', {'difficulty': 'Easy', 'duration': 20, 'match_type': '2v2'}).json()
+        match_id = resp['match_id']
+        code = resp['invite_code']
+        self.assertEqual(resp['match_type'], '2v2')
+
+        # 2. Other 3 players join via invite
+        join_url = f'/duels/join/{code}/'
+        for c in [c2, c3, c4]:
+            self.assertEqual(c.post(join_url).status_code, 302)
+
+        m = Match.objects.get(pk=match_id)
+        self.assertEqual(m.participants.count(), 4)
+
+        # 3. Switch team test
+        self.assertEqual(c2.post(f'/duels/match/{match_id}/switch-team/', {'team': 'team_b'}).status_code, 200)
+        p2 = Participant.objects.get(match=m, user=users[1])
+        self.assertEqual(p2.team, 'team_b')
+
+        # Balance teams: p1, p3 in team_a; p2, p4 in team_b
+        Participant.objects.filter(match=m, user=users[0]).update(team='team_a')
+        Participant.objects.filter(match=m, user=users[1]).update(team='team_b')
+        Participant.objects.filter(match=m, user=users[2]).update(team='team_a')
+        Participant.objects.filter(match=m, user=users[3]).update(team='team_b')
+
+        # 4. Ready up all 4 players
+        for c in [c1, c2, c3, c4]:
+            self.assertEqual(c.post(f'/duels/match/{match_id}/ready/').status_code, 302)
+
+        m.refresh_from_db()
+        self.assertEqual(m.status, 'active')
+
+        # 5. Team A solves a problem
+        sub_resp = c1.post(f'/duels/match/{match_id}/submit/{self.problem.pk}/', {'code': 'print(input())'})
+        self.assertEqual(sub_resp.json()['verdict'], 'Accepted')
+
+        # 6. Check match status API for 2v2
+        status_data = c1.get(f'/duels/match-status/{match_id}/').json()
+        self.assertEqual(status_data['match_type'], '2v2')
+        self.assertEqual(status_data['my_team_solved'], 1)
+        self.assertEqual(status_data['opp_team_solved'], 0)
+
+        # Finish match & check rating settlement
+        from .views import _finish_match
+        _finish_match(m)
+        m.refresh_from_db()
+        self.assertEqual(m.status, 'finished')
+        # Winning team (team A) should gain rating
+        self.assertGreater(Participant.objects.get(match=m, user=users[0]).rating_change, 0)
+
 
 class DuelSocketTests(TransactionTestCase):
     def test_participant_events_and_outsider_rejection(self):

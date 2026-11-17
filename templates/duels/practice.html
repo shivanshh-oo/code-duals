@@ -35,7 +35,10 @@
                 <span class="chip {% if problem.difficulty == 'Easy' %}chip--diff-easy{% elif problem.difficulty == 'Medium' %}chip--diff-medium{% else %}chip--diff-hard{% endif %}">{{ problem.difficulty }}</span>
             </div>
             <div class="card-body">
-                <p class="text-muted"><span data-icon="clock" data-size="14"></span> <strong>Time Limit:</strong> {{ problem.time_limit_sec }}s</p>
+                <p class="text-muted mb-2">
+                    <span data-icon="clock" data-size="14"></span> <strong>Time Limit:</strong> {{ problem.time_limit_sec }}s &nbsp;&bull;&nbsp;
+                    <span data-icon="terminal" data-size="14"></span> <strong>Test Suite:</strong> {{ total_tests_count }} test cases ({{ sample_tests.count }} sample, {{ hidden_tests_count }} hidden)
+                </p>
                 <hr style="border:0;border-top:1.5px dashed var(--pale-blue-d);margin:12px 0;">
                 <div>{{ problem.statement|linebreaks }}</div>
             </div>
@@ -63,7 +66,8 @@
     <div class="workspace-compiler-column">
         <div class="card mb-3 fade-in" style="overflow:hidden;padding:0;">
             <div class="card-header p-3" style="border-bottom:1.5px solid var(--pale-blue-d);margin:0;padding:14px 20px !important;">
-                <h5 class="mb-0"><span data-icon="terminal" data-size="16"></span> Python 3 Editor</h5>
+                <h5 class="mb-0">Code Editor</h5>
+                <label>Language <select id="language" class="form-select"><option value="python">Python 3</option><option value="cpp">C++17</option></select></label>
                 <button id="submitBtn" class="btn btn-yellow btn-sm" onclick="submitCode()">
                     <span data-icon="terminal"></span> Submit Code
                 </button>
@@ -115,7 +119,7 @@ function submitCode() {
             'Content-Type': 'application/x-www-form-urlencoded',
             'X-CSRFToken': csrfToken,
         },
-        body: 'code=' + encodeURIComponent(code) + '&csrfmiddlewaretoken=' + csrfToken,
+        body: 'code=' + encodeURIComponent(code) + '&language=' + document.getElementById('language').value + '&csrfmiddlewaretoken=' + csrfToken,
     })
     .then(r => r.json())
     .then(data => {
@@ -130,28 +134,42 @@ function submitCode() {
             'Error': 'chip--danger',
         }[data.verdict] || 'chip--danger';
 
+        const sampleCount = data.sample_tests_count || (data.details ? data.details.filter(x => x.is_sample).length : 0);
+        const hiddenCount = data.hidden_tests_count || (data.details ? data.details.filter(x => !x.is_sample).length : 0);
+        const passedSample = data.passed_samples !== undefined ? data.passed_samples : (data.details ? data.details.filter(x => x.is_sample && x.status === 'Accepted').length : 0);
+        const passedHidden = data.passed_hidden !== undefined ? data.passed_hidden : (data.details ? data.details.filter(x => !x.is_sample && x.status === 'Accepted').length : 0);
+
         verdictEl.innerHTML = `
-            <div class="d-flex align-items-center gap-3">
+            <div class="d-flex flex-wrap align-items-center gap-3">
                 <span class="chip ${verdictChipClass}" style="font-size:1rem;padding:6px 14px;">${data.verdict}</span>
-                <span class="text-muted">Passed: <strong>${data.tests_passed}</strong> / ${data.tests_total} tests</span>
+                <span class="text-muted">Total: <strong>${data.tests_passed}</strong> / ${data.tests_total} tests</span>
+                <span class="chip chip--diff-easy" style="font-size:0.85rem;"><span data-icon="checkCircle" data-size="12"></span> ${passedSample}/${sampleCount} Sample Tests</span>
+                <span class="chip chip--diff-medium" style="font-size:0.85rem;"><span data-icon="shield" data-size="12"></span> ${passedHidden}/${hiddenCount} Hidden Tests</span>
+            </div>
+            <div class="text-muted small mt-2">
+                Your code was evaluated against <strong>${data.tests_total} test cases</strong> (${sampleCount} sample test cases and <strong>${hiddenCount} hidden test cases</strong>).
             </div>
         `;
 
-        let html = '<table class="table table-sm mt-3"><thead><tr><th>Test #</th><th>Status</th><th>Details</th></tr></thead><tbody>';
+        let html = '<div class="table-responsive"><table class="table table-sm mt-3"><thead><tr><th>Test #</th><th>Type</th><th>Status</th><th>Details</th></tr></thead><tbody>';
         data.details.forEach(d => {
             const statusBadge = d.status === 'Accepted'
                 ? '<span class="chip chip--success">Passed</span>'
                 : `<span class="chip chip--danger">${d.status}</span>`;
+            const typeBadge = d.is_sample
+                ? '<span class="chip chip--diff-easy" style="font-size:0.75rem;">Sample</span>'
+                : '<span class="chip chip--diff-medium" style="font-size:0.75rem;">Hidden</span>';
             let details = '';
             if (d.is_sample && d.status !== 'Accepted') {
                 details = `Expected: <code>${d.expected}</code> &nbsp; Got: <code>${d.output}</code>`;
             } else if (!d.is_sample) {
-                details = '<small class="text-muted">Hidden test case</small>';
+                details = '<small class="text-muted">Hidden test case input & output</small>';
             }
-            html += `<tr><td><strong>#${d.test}</strong></td><td>${statusBadge}</td><td>${details}</td></tr>`;
+            html += `<tr><td><strong>#${d.test}</strong></td><td>${typeBadge}</td><td>${statusBadge}</td><td>${details}</td></tr>`;
         });
-        html += '</tbody></table>';
+        html += '</tbody></table></div>';
         detailsEl.innerHTML = html;
+        if (window.CD && window.CD.hydrateIcons) window.CD.hydrateIcons(verdictEl);
     })
     .catch(err => {
         btn.disabled = false;

@@ -5,6 +5,10 @@ from problems.models import Problem
 
 
 class Match(models.Model):
+    MATCH_TYPE_CHOICES = [
+        ('1v1', '1v1 Solo'),
+        ('2v2', '2v2 Team'),
+    ]
     STATUS_CHOICES = [
         ('waiting', 'Waiting'),
         ('active', 'Active'),
@@ -16,6 +20,7 @@ class Match(models.Model):
         ('Hard', 'Hard'),
     ]
 
+    match_type = models.CharField(max_length=10, choices=MATCH_TYPE_CHOICES, default='1v1')
     invite_code = models.CharField(max_length=20, unique=True, blank=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='waiting')
     difficulty = models.CharField(max_length=10, choices=DIFFICULTY_CHOICES, default='Medium')
@@ -48,8 +53,15 @@ class MatchProblem(models.Model):
 
 
 class Participant(models.Model):
+    TEAM_CHOICES = [
+        ('none', 'None'),
+        ('team_a', 'Team A'),
+        ('team_b', 'Team B'),
+    ]
+
     match = models.ForeignKey(Match, on_delete=models.CASCADE, related_name='participants')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='participations')
+    team = models.CharField(max_length=10, choices=TEAM_CHOICES, default='none')
     score = models.FloatField(default=0)
     problems_solved = models.IntegerField(default=0)
     finished_at = models.DateTimeField(null=True, blank=True)

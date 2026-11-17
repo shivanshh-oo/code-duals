@@ -1,0 +1,190 @@
+{% extends 'base.html' %}
+
+{% block title %}Interview Room: {{ track.title }} - CodeDuels{% endblock %}
+
+{% block extra_css %}
+<style>
+@media (min-width: 992px) {
+    .content-wrapper {
+        max-width: 1420px !important;
+        width: 96% !important;
+    }
+}
+.interview-timer {
+    font-family: monospace;
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3 fade-in" style="flex-wrap:wrap;gap:12px;">
+    <div>
+        <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="live-dot"></span>
+            <h2 style="margin:0">{{ track.title }}</h2>
+            <span class="chip chip--info">{{ track.target_role }}</span>
+        </div>
+        <small class="text-muted">Timed Interview Session &bull; Total Problems: {{ problem_items|length }}</small>
+    </div>
+
+    <div class="d-flex align-items-center gap-3">
+        <div class="badge badge--yellow interview-timer" id="countdownTimer">
+            <span data-icon="clock" data-size="14"></span> --:--
+        </div>
+        <form method="post" action="{% url 'finish_interview' session.id %}" onsubmit="return confirm('Are you sure you want to finish and submit your interview? You will see your comparison report immediately.');">
+            {% csrf_token %}
+            <button class="btn btn-sm btn-outline-danger">
+                <span data-icon="checkCircle"></span> Finish Interview
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Problem Tab Navigation -->
+<nav class="problem-picker mb-3 fade-in" aria-label="Interview stages">
+    {% for item in problem_items %}
+    <button type="button" class="duel-tab-btn" onclick="selectProblemTab({{ forloop.counter0 }})" id="tab-btn-{{ forloop.counter0 }}" aria-selected="{% if forloop.first %}true{% else %}false{% endif %}">
+        Stage {{ forloop.counter }}: {{ item.problem.title }}
+        {% if item.latest_submission and item.latest_submission.verdict == 'Accepted' %}
+        <span class="badge bg-success ms-1">Solved</span>
+        {% endif %}
+    </button>
+    {% endfor %}
+</nav>
+
+<!-- Problems Container -->
+{% for item in problem_items %}
+<div class="card interview-card fade-in p-4 mb-4" id="problem-card-{{ forloop.counter0 }}" {% if not forloop.first %}style="display:none;"{% endif %}>
+    <div class="card-header pb-3 mb-3">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-2">
+                <h3 class="mb-0">Stage {{ forloop.counter }}: {{ item.problem.title }}</h3>
+                <span class="chip chip--yellow">{{ item.track_problem.phase_label }}</span>
+                <span class="chip {% if item.problem.difficulty == 'Easy' %}chip--diff-easy{% elif item.problem.difficulty == 'Medium' %}chip--diff-medium{% else %}chip--diff-hard{% endif %}">{{ item.problem.difficulty }}</span>
+            </div>
+            <span class="badge badge--yellow">
+                <span data-icon="terminal" data-size="13"></span> {{ item.total_tests }} Test Cases ({{ item.sample_tests.count }} sample, {{ item.hidden_tests }} hidden)
+            </span>
+        </div>
+    </div>
+
+    <div class="card-body">
+        <div class="coding-workspace-grid">
+            <!-- Left: Description and samples -->
+            <div class="workspace-problem-column">
+                <div class="problem-desc-box">
+                    <h5 class="mb-2">Problem Statement</h5>
+                    <div>{{ item.problem.statement|linebreaks }}</div>
+
+                    <h5 class="mt-4 mb-2">Sample Test Cases</h5>
+                    {% for test in item.sample_tests %}
+                    <div class="mb-3">
+                        <strong>Sample {{ forloop.counter }}:</strong>
+                        <pre>Input:
+{{ test.input }}
+Expected Output:
+{{ test.expected_output }}</pre>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Right: Code editor and execution -->
+            <div class="workspace-compiler-column">
+                <form class="interview-form compiler-box-wrapper" action="{% url 'submit_interview_problem' session.id item.problem.id %}">
+                    {% csrf_token %}
+                    <label>Language 
+                        <select name="language" class="form-select">
+                            <option value="python">Python 3</option>
+                            <option value="cpp">C++17</option>
+                        </select>
+                    </label>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <label class="form-label mb-0"><strong><span data-icon="terminal" data-size="15"></span> Solution Editor</strong></label>
+                        <span class="text-muted" style="font-size:.8rem;">Standard I/O (<code>input()</code>, <code>print()</code>)</span>
+                    </div>
+                    <textarea class="form-control code-editor mb-3" name="code" rows="18" placeholder="# Write your solution for Stage {{ forloop.counter }} here...
+# Read input with input()
+# Print output with print()" required>{% if item.latest_submission %}{{ item.latest_submission.code }}{% endif %}</textarea>
+                    
+                    <div class="d-flex align-items-center justify-content-between gap-3 mt-auto">
+                        <button class="btn btn-yellow btn-lg"><span data-icon="terminal"></span> Submit Code</button>
+                        <div class="result-msg text-end flex-grow-1" style="font-weight:600;">
+                            {% if item.latest_submission %}
+                            <span class="chip {% if item.latest_submission.verdict == 'Accepted' %}chip--success{% else %}chip--danger{% endif %}">{{ item.latest_submission.verdict }}</span>
+                            <small class="text-muted ms-2">{{ item.latest_submission.tests_passed }}/{{ item.latest_submission.tests_total }} tests passed</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function selectProblemTab(idx) {
+    document.querySelectorAll('.interview-card').forEach((c, i) => c.style.display = (i === idx ? 'block' : 'none'));
+    document.querySelectorAll('.duel-tab-btn').forEach((b, i) => b.setAttribute('aria-selected', i === idx));
+}
+
+let remainingSeconds = {{ time_remaining_seconds }};
+const timerEl = document.getElementById('countdownTimer');
+
+function updateTimer() {
+    if (remainingSeconds <= 0) {
+        timerEl.innerHTML = '<span data-icon="clock" data-size="14"></span> Time Expired!';
+        alert('Time is up! Submitting your interview...');
+        document.querySelector('form[action$="/finish/"]').submit();
+        return;
+    }
+    const mins = Math.floor(remainingSeconds / 60);
+    const secs = String(remainingSeconds % 60).padStart(2, '0');
+    timerEl.innerHTML = `<span data-icon="clock" data-size="14"></span> ${mins}:${secs} remaining`;
+    if (window.CD && window.CD.hydrateIcons) window.CD.hydrateIcons(timerEl);
+    remainingSeconds--;
+}
+
+setInterval(updateTimer, 1000);
+updateTimer();
+
+document.querySelectorAll('.interview-form').forEach((f, idx) => {
+    f.onsubmit = async (e) => {
+        e.preventDefault();
+        const btn = f.querySelector('button');
+        const msgEl = f.querySelector('.result-msg');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Evaluating...';
+
+        try {
+            const resp = await fetch(f.action, { method: 'POST', body: new FormData(f) });
+            const data = await resp.json();
+            if (data.error) {
+                msgEl.innerHTML = `<span class="chip chip--danger">${data.error}</span>`;
+            } else {
+                const cls = data.verdict === 'Accepted' ? 'chip--success' : 'chip--danger';
+                msgEl.innerHTML = `<span class="chip ${cls}">${data.verdict}</span> <small class="text-muted ms-2">${data.tests_passed}/${data.tests_total} tests passed (${data.hidden_tests_count} hidden)</small>`;
+                if (data.verdict === 'Accepted') {
+                    const tabBtn = document.getElementById('tab-btn-' + idx);
+                    if (!tabBtn.querySelector('.bg-success')) {
+                        tabBtn.innerHTML += ' <span class="badge bg-success ms-1">Solved</span>';
+                    }
+                }
+            }
+        } catch(err) {
+            msgEl.textContent = 'Submission failed. Please retry.';
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<span data-icon="terminal"></span> Submit Code';
+            if (window.CD && window.CD.hydrateIcons) window.CD.hydrateIcons(btn);
+        }
+    };
+});
+</script>
+{% endblock %}
+

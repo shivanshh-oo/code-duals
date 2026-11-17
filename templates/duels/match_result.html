@@ -8,15 +8,31 @@
         <div class="card text-center fade-in p-4 mb-4">
             <h1 class="mb-2">Duel Complete</h1>
             <p class="lead">
-                {% if match.winner == user %}
-                <span class="chip chip--success" style="font-size:1.1rem;padding:6px 16px;"><span data-icon="trophy" data-size="16"></span> Victory</span>
-                {% elif match.winner %}
-                <span class="chip chip--danger" style="font-size:1.1rem;padding:6px 16px;"><span data-icon="x" data-size="16"></span> Defeat</span>
+                {% if match.match_type == '2v2' %}
+                    {% if user_won %}
+                    <span class="chip chip--success" style="font-size:1.1rem;padding:6px 16px;"><span data-icon="trophy" data-size="16"></span> Team Victory ({{ my_participant.get_team_display }})</span>
+                    {% elif winning_team %}
+                    <span class="chip chip--danger" style="font-size:1.1rem;padding:6px 16px;"><span data-icon="x" data-size="16"></span> Team Defeat</span>
+                    {% else %}
+                    <span class="chip chip--info" style="font-size:1.1rem;padding:6px 16px;"><span data-icon="equals" data-size="16"></span> Draw</span>
+                    {% endif %}
                 {% else %}
-                <span class="chip chip--info" style="font-size:1.1rem;padding:6px 16px;"><span data-icon="equals" data-size="16"></span> Draw</span>
+                    {% if match.winner == user %}
+                    <span class="chip chip--success" style="font-size:1.1rem;padding:6px 16px;"><span data-icon="trophy" data-size="16"></span> Victory</span>
+                    {% elif match.winner %}
+                    <span class="chip chip--danger" style="font-size:1.1rem;padding:6px 16px;"><span data-icon="x" data-size="16"></span> Defeat</span>
+                    {% else %}
+                    <span class="chip chip--info" style="font-size:1.1rem;padding:6px 16px;"><span data-icon="equals" data-size="16"></span> Draw</span>
+                    {% endif %}
                 {% endif %}
             </p>
-            <p class="text-muted">Winner: <strong>{{ match.winner.username|default:'Draw' }}</strong></p>
+            <p class="text-muted">
+                {% if match.match_type == '2v2' %}
+                Format: <strong>2v2 Squad Duel</strong> &nbsp;|&nbsp; Winning Squad: <strong>{% if winning_team == 'team_a' %}Team A (Blue){% elif winning_team == 'team_b' %}Team B (Red){% else %}Draw{% endif %}</strong>
+                {% else %}
+                Winner: <strong>{{ match.winner.username|default:'Draw' }}</strong>
+                {% endif %}
+            </p>
 
             <div class="row mt-4 mb-2" style="gap:12px;">
                 <div class="col-md-4">

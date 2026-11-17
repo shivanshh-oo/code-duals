@@ -14,7 +14,7 @@ def register(request):
         form = RegisterForm(request.POST)
         if form.is_valid():
             user = form.save()
-            login(request, user)
+            login(request, user, backend='django.contrib.auth.backends.ModelBackend')
             messages.success(request, 'Registration successful! Welcome to CodeDuels.')
             return redirect('placement')
     else:
@@ -84,6 +84,10 @@ def placement_submit(request):
         code = request.POST.get(f'code_{problem.id}', '').strip()
         max_score += 1
 
+        sample_count = problem.test_cases.filter(is_sample=True).count()
+        total_count = problem.test_cases.count()
+        hidden_count = total_count - sample_count
+
         if code:
             all_tests = problem.test_cases.all()
             result = judge_submission(code, all_tests, problem.time_limit_sec)
@@ -94,13 +98,17 @@ def placement_submit(request):
                 'verdict': result['verdict'],
                 'tests_passed': result['tests_passed'],
                 'tests_total': result['tests_total'],
+                'sample_tests_count': sample_count,
+                'hidden_tests_count': hidden_count,
             })
         else:
             results.append({
                 'problem': problem.title,
                 'verdict': 'Not Submitted',
                 'tests_passed': 0,
-                'tests_total': problem.test_cases.count(),
+                'tests_total': total_count,
+                'sample_tests_count': sample_count,
+                'hidden_tests_count': hidden_count,
             })
 
     # Calculate rating: 800 + 1200 * (score / max_score)

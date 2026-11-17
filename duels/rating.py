@@ -4,7 +4,7 @@ Rating module: Elo with speed bonus.
 
 
 def update_ratings(match, p1, p2):
-    """Update ratings for both participants after a match ends. Called once."""
+    """Update ratings for both participants after a 1v1 match ends. Called once."""
     if p1.rating_change != 0 or p2.rating_change != 0:
         return  # Already updated
 
@@ -52,6 +52,75 @@ def update_ratings(match, p1, p2):
     profile2.rating = max(100, profile2.rating + change2)
     profile1.save()
     profile2.save()
+
+
+def update_ratings_2v2(match, team_a_participants, team_b_participants, winning_team):
+    """
+    Update Elo ratings for 2v2 match.
+    Team average rating determines expected outcome.
+    Winning team members gain points adjusted for individual performance,
+    and losing members lose points accordingly.
+    """
+    if any(p.rating_change != 0 for p in team_a_participants + team_b_participants):
+        return  # Already updated
+
+    total_problems = match.match_problems.count()
+    time_limit = match.duration_minutes * 60
+
+    rA = sum(p.user.profile.rating for p in team_a_participants) / max(1, len(team_a_participants))
+    rB = sum(p.user.profile.rating for p in team_b_participants) / max(1, len(team_b_participants))
+
+    expA = 1 / (1 + 10 ** ((rB - rA) / 400))
+    expB = 1 / (1 + 10 ** ((rA - rB) / 400))
+
+    perf_map = {}
+    for p in team_a_participants + team_b_participants:
+        perf_map[p.id] = _performance(p, total_problems, time_limit)
+
+    perfA = sum(perf_map[p.id] for p in team_a_participants)
+    perfB = sum(perf_map[p.id] for p in team_b_participants)
+
+    if winning_team == 'team_a':
+        scoreA, scoreB = 1.0, 0.0
+    elif winning_team == 'team_b':
+        scoreA, scoreB = 0.0, 1.0
+    else:
+        scoreA = (perfA / (perfA + perfB)) if (perfA + perfB) > 0 else 0.5
+        scoreB = 1.0 - scoreA
+
+    team_change_A = 32 * (scoreA - expA)
+    team_change_B = 32 * (scoreB - expB)
+
+    # Distribute within Team A
+    total_perf_a = sum(perf_map[p.id] for p in team_a_participants)
+    for p in team_a_participants:
+        weight = (perf_map[p.id] / total_perf_a) if total_perf_a > 0 else 0.5
+        # Individual adjustment relative to equal split
+        ind_change = round(team_change_A * (0.6 + 0.8 * weight))
+        if winning_team == 'team_a':
+            ind_change = max(1, ind_change)
+        elif winning_team == 'team_b':
+            ind_change = min(-1, ind_change)
+        p.rating_change = ind_change
+        p.save(update_fields=['rating_change'])
+        profile = p.user.profile
+        profile.rating = max(100, profile.rating + ind_change)
+        profile.save(update_fields=['rating'])
+
+    # Distribute within Team B
+    total_perf_b = sum(perf_map[p.id] for p in team_b_participants)
+    for p in team_b_participants:
+        weight = (perf_map[p.id] / total_perf_b) if total_perf_b > 0 else 0.5
+        ind_change = round(team_change_B * (0.6 + 0.8 * weight))
+        if winning_team == 'team_b':
+            ind_change = max(1, ind_change)
+        elif winning_team == 'team_a':
+            ind_change = min(-1, ind_change)
+        p.rating_change = ind_change
+        p.save(update_fields=['rating_change'])
+        profile = p.user.profile
+        profile.rating = max(100, profile.rating + ind_change)
+        profile.save(update_fields=['rating'])
 
 
 def _performance(participant, total_problems, time_limit):

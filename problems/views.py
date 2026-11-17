@@ -2,6 +2,7 @@ from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from .models import Problem, Solution
+from django.db.models import Q
 
 
 def problem_list(request):
@@ -11,7 +12,7 @@ def problem_list(request):
 
 def problem_list_api(request):
     """JSON endpoint for fetching problems with search and filter."""
-    problems = Problem.objects.filter(is_draft=False)
+    problems = Problem.objects.filter(Q(is_draft=False) | Q(is_draft=True, test_cases__is_sample=True)).distinct()
 
     search = request.GET.get('search', '').strip()
     category = request.GET.get('category', '').strip()
@@ -28,6 +29,8 @@ def problem_list_api(request):
     for p in problems:
         data.append({
             'id': p.id,
+            'source': 'Codeforces' if (p.source_url or '').startswith('https://codeforces.com/') else 'LeetCode' if (p.source_url or '').startswith('https://leetcode.com/') else 'CodeDuels',
+            'url': f'/problems/{p.id}/',
             'title': p.title,
             'category': p.category,
             'difficulty': p.difficulty,
@@ -38,8 +41,10 @@ def problem_list_api(request):
 
 def problem_detail(request, pk):
     """Problem detail page with statement and sample test cases."""
-    problem = get_object_or_404(Problem, pk=pk, is_draft=False)
+    problem = get_object_or_404(Problem.objects.filter(Q(is_draft=False) | Q(is_draft=True, test_cases__is_sample=True)).distinct(), pk=pk)
     sample_tests = problem.test_cases.filter(is_sample=True)
+    total_tests_count = problem.test_cases.count()
+    hidden_tests_count = total_tests_count - sample_tests.count()
 
     # Check if user can see the solution
     can_see_solution = False
@@ -56,6 +61,8 @@ def problem_detail(request, pk):
     return render(request, 'problems/problem_detail.html', {
         'problem': problem,
         'sample_tests': sample_tests,
+        'total_tests_count': total_tests_count,
+        'hidden_tests_count': hidden_tests_count,
         'can_see_solution': can_see_solution,
         'solution': solution,
     })

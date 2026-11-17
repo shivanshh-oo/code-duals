@@ -1,34 +1,41 @@
 import requests
+import time
+from django.db import close_old_connections
+from problems.catalogue import sync_catalogue
 from django.core.management.base import BaseCommand, CommandError
-from problems.models import Problem
 
 
 class Command(BaseCommand):
-    help = 'Import Codeforces metadata as drafts; add statements and tests before publishing.'
+    help = 'Sync external question catalogues once or periodically.'
 
     def add_arguments(self, parser):
-        parser.add_argument('--limit', type=int, default=100)
+        parser.add_argument('--limit', type=int, default=0, help='0 imports all questions')
+        parser.add_argument('--source', choices=['leetcode', 'codeforces'], default='leetcode')
+        parser.add_argument('--watch', action='store_true')
+        parser.add_argument('--interval', type=int, default=3600)
 
     def handle(self, *args, **options):
+        if options['limit'] < 0 or options['interval'] < 60:
+            raise CommandError('Limit must be nonnegative; interval must be at least 60 seconds.')
+        sources = [options['source']]
         try:
-            response = requests.get('https://codeforces.com/api/problemset.problems', timeout=30)
-            response.raise_for_status()
-            data = response.json()
-            if data.get('status') != 'OK':
-                raise ValueError('Codeforces API failed')
-            items = data['result']['problems']
-        except (requests.RequestException, ValueError, KeyError) as error:
-            raise CommandError(str(error))
-        count = 0
-        for item in items[:max(0, options['limit'])]:
-            if 'contestId' not in item:
-                continue
-            url = f"https://codeforces.com/problemset/problem/{item['contestId']}/{item['index']}"
-            rating = item.get('rating', 1000)
-            _, created = Problem.objects.get_or_create(source_url=url, defaults={
-                'title': item['name'][:200], 'statement': 'Add statement and tests. Tags: ' + ', '.join(item.get('tags', [])),
-                'category': 'DSA', 'difficulty_rating': rating, 'is_draft': True,
-                'difficulty': 'Easy' if rating < 1200 else 'Medium' if rating < 1800 else 'Hard',
-            })
-            count += created
-        self.stdout.write(f'Imported {count} drafts')
+            while True:
+                failures = []
+                for source in sources:
+                    try:
+                        created, updated = sync_catalogue(source, options['limit'])
+                        self.stdout.write(f'{source}: {created} new, {updated} refreshed')
+                    except CommandError as error:
+                        failures.append(str(error))
+                        self.stderr.write(str(error))
+                    except (requests.RequestException, ValueError, KeyError, TypeError) as error:
+                        failures.append(f'{source}: {error}')
+                        self.stderr.write(f'{source} failed; saved questions retained: {error}')
+                if not options['watch']:
+                    if failures:
+                        raise CommandError('; '.join(failures))
+                    return
+                close_old_connections()
+                time.sleep(options['interval'])
+        except KeyboardInterrupt:
+            self.stdout.write('Question sync stopped.')
