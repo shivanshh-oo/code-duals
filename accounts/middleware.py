@@ -17,6 +17,8 @@ class PlacementRequiredMiddleware:
         '/accounts/logout/',
         '/accounts/login/',
         '/accounts/register/',
+        '/accounts/google/',
+        '/accounts/social/',
         '/admin/',
     ]
 

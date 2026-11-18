@@ -18,6 +18,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', views.home, name='home'),
     path('accounts/', include('accounts.urls')),
+    path('accounts/', include('allauth.urls')),
     path('problems/', include('problems.urls')),
     path('duels/', include('duels.urls')),
     path('interviews/', include('interviews.urls')),

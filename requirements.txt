@@ -3,3 +3,5 @@ channels>=4.0
 daphne>=4.0
 requests>=2.31
 python-dotenv>=1,<2
+django-allauth>=65.0
+pyjwt>=2.8
