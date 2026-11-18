@@ -100,8 +100,8 @@ class Command(BaseCommand):
                 prob = Problem.objects.filter(title=pinfo['title']).first()
                 if not prob:
                     # Fallback to any published problem
-                    prob = Problem.objects.filter(is_draft=False).first()
-                if prob:
+                    prob = Problem.objects.filter(is_draft=False).exclude(pk__in=TrackProblem.objects.filter(track=track).values_list('problem_id', flat=True)).first()
+                if prob and not TrackProblem.objects.filter(track=track, problem=prob).exists():
                     TrackProblem.objects.create(
                         track=track,
                         problem=prob,

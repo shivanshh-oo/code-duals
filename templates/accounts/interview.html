@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}Practice Interview - CodeDuels{% endblock %}
+{% block content %}
+<h1>Practice interview</h1>
+<p>Choose a subject, listen to each question, and dictate or type your answer. Review your answers before submitting for feedback.</p>
+<label for="topic">Interview subject</label><select id="topic" class="form-select"></select>
+<div id="questions"></div>
+<form id="evaluation">{% csrf_token %}<label><input type="checkbox" id="consent" required> Submit my reviewed answers for AI feedback.</label><br><button class="btn btn-yellow" id="finish">Finish and get feedback</button></form>
+<p id="status" role="status"></p><pre id="feedback" style="white-space:pre-wrap"></pre>
+{{ questions|json_script:'question-data' }}
+{% endblock %}
+{% block extra_js %}
+<script>
+const bank=JSON.parse(document.getElementById('question-data').textContent), topic=document.getElementById('topic'), area=document.getElementById('questions'), statusEl=document.getElementById('status');
+const draftKey='interview-draft-{{ user.pk }}';
+let drafts={};try{drafts=JSON.parse(sessionStorage.getItem(draftKey)||'{}');}catch(e){}
+function saveDraft(){drafts[topic.value]=[...area.querySelectorAll('textarea')].map(a=>a.value);try{sessionStorage.setItem(draftKey,JSON.stringify(drafts));}catch(e){}}
+let recognition=null;
+let recording=false;
+Object.keys(bank).forEach(t=>topic.add(new Option(t,t)));
+function renderQuestions(){
+ if(recognition) recognition.abort();
+ area.replaceChildren(); document.getElementById('feedback').textContent='';
+ bank[topic.value].forEach((question,index)=>{
+  const card=document.createElement('section');card.className='card p-3 my-3';
+  const title=document.createElement('h3');title.textContent=(index+1)+'. '+question;
+  const answer=document.createElement('textarea');answer.className='form-control';answer.rows=5;answer.maxLength=6000;answer.setAttribute('aria-label','Answer '+(index+1));
+  answer.value=(drafts[topic.value]||[])[index]||'';answer.oninput=saveDraft;
+  const listen=document.createElement('button');listen.textContent='Read question';listen.type='button';listen.onclick=()=>{if(!window.speechSynthesis){statusEl.textContent='Speech playback unavailable.';return;} speechSynthesis.cancel();speechSynthesis.speak(new SpeechSynthesisUtterance(question));};
+  const record=document.createElement('button');record.textContent='Dictate answer';record.type='button';record.onclick=()=>{
+   const Speech=window.SpeechRecognition||window.webkitSpeechRecognition;
+   if(!window.isSecureContext){statusEl.textContent='Microphone access requires HTTPS or localhost. On the host open http://localhost:8000/interview/. On LAN HTTP, type your transcript below.';return;}
+   if(!Speech){statusEl.textContent='Speech recognition unavailable. Type your answer instead.';return;}
+   if(recognition) recognition.abort(); recognition=new Speech();recognition.lang='en-US';recognition.continuous=true;
+   recognition.onresult=e=>{for(let i=e.resultIndex;i<e.results.length;i++)if(e.results[i].isFinal)answer.value=(answer.value+' '+e.results[i][0].transcript).trim().slice(0,6000);saveDraft();};
+   recognition.onerror=e=>statusEl.textContent='Recording: '+e.error+'. You can type your answer.';
+   recognition.onstart=()=>{recording=true;topic.disabled=true;record.textContent='Listening...';};
+   recognition.onend=()=>{recording=false;topic.disabled=false;record.textContent='Dictate answer';saveDraft();};
+   try{recognition.start();record.textContent='Listeningâ€¦';statusEl.textContent='Recording. Click Stop when finished.';}catch(e){statusEl.textContent='Unable to start microphone.';}
+  };
+  const stop=document.createElement('button');stop.textContent='Stop';stop.type='button';stop.onclick=()=>{if(recognition)recognition.stop();};
+  card.append(title,listen,record,stop,answer);area.append(card);
+ });
+}
+topic.onchange=renderQuestions;renderQuestions();
+document.getElementById('evaluation').onsubmit=async e=>{
+ if(recording){e.preventDefault();recognition.stop();statusEl.textContent='Recording stopped. Review the final transcript, then click Finish again.';return;}
+ saveDraft();
+ e.preventDefault();if(recognition)recognition.stop();const button=document.getElementById('finish');button.disabled=true;statusEl.textContent='Evaluatingâ€¦';
+ try{const response=await fetch('{% url "interview_evaluate" %}',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:JSON.stringify({topic:topic.value,answers:[...area.querySelectorAll('textarea')].map(a=>a.value)})});const data=await response.json();if(!response.ok)throw new Error(data.error||'Evaluation failed');document.getElementById('feedback').textContent=data.feedback;statusEl.textContent='Practice feedback ready.';}catch(error){statusEl.textContent=error.message;}finally{button.disabled=false;}
+};
+</script>
+{% endblock %}

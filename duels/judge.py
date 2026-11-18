@@ -10,6 +10,17 @@ import time
 import shutil
 
 
+def _find_cpp_compiler():
+    """Find g++ even when MSYS2 was installed without adding it to PATH."""
+    candidates = [
+        shutil.which('g++'),
+        r'C:\msys64\ucrt64\bin\g++.exe',
+        r'C:\msys64\mingw64\bin\g++.exe',
+        r'C:\Program Files\mingw-w64\ucrt64\bin\g++.exe',
+    ]
+    return next((path for path in candidates if path and os.path.isfile(path)), None)
+
+
 def judge_submission(code, test_cases, time_limit_sec=5, language='python'):
     """
     Run code against test cases and return the verdict.
@@ -27,21 +38,25 @@ def judge_submission(code, test_cases, time_limit_sec=5, language='python'):
     if language not in ('python', 'cpp'):
         return {'verdict': 'Error', 'tests_passed': 0, 'tests_total': tests_total, 'runtime_ms': 0, 'details': [], 'error': 'Unsupported language'}
     if language == 'cpp':
-        compiler = shutil.which('g++')
+        compiler = _find_cpp_compiler()
         if not compiler:
-            return {'verdict': 'Error', 'tests_passed': 0, 'tests_total': tests_total, 'runtime_ms': 0, 'details': [], 'error': 'C++ requires g++ on the server PATH.'}
+            return {'verdict': 'Error', 'tests_passed': 0, 'tests_total': tests_total, 'runtime_ms': 0, 'details': [], 'error': 'C++ compiler not found. Install MSYS2 UCRT64 GCC or add g++ to PATH.'}
         with tempfile.TemporaryDirectory() as directory:
             source = os.path.join(directory, 'main.cpp')
             executable = os.path.join(directory, 'main.exe' if os.name == 'nt' else 'main')
             with open(source, 'w', encoding='utf-8') as stream:
                 stream.write(code)
             try:
-                compiled = subprocess.run([compiler, '-std=c++17', '-O2', source, '-o', executable], capture_output=True, text=True, timeout=30)
+                compiler_dir = os.path.dirname(compiler)
+                environment = os.environ.copy()
+                environment['PATH'] = compiler_dir + os.pathsep + environment.get('PATH', '')
+                compiled = subprocess.run([compiler, '-std=c++17', '-O2', source, '-o', executable], capture_output=True, text=True, timeout=30, env=environment)
                 if compiled.returncode:
                     raise ValueError(compiled.stderr[:2000])
             except (OSError, ValueError, subprocess.TimeoutExpired) as error:
-                return {'verdict': 'Error', 'tests_passed': 0, 'tests_total': tests_total, 'runtime_ms': 0, 'details': [], 'error': 'Compilation failed: ' + str(error)}
-            details = [_run_single_test(executable, tc.input, tc.expected_output, time_limit_sec, native=True) for tc in test_cases]
+                detail = str(error)
+                return {'verdict': 'Error', 'tests_passed': 0, 'tests_total': tests_total, 'runtime_ms': 0, 'details': [], 'error': 'Compilation failed: ' + detail}
+            details = [_run_single_test(executable, tc.input, tc.expected_output, time_limit_sec, native=True, environment=environment) for tc in test_cases]
             passed = sum(item['passed'] for item in details)
             verdict = 'Accepted' if tests_total and passed == tests_total else 'Time Limit' if any(item['status'] == 'Time Limit' for item in details) else 'Error' if not tests_total or any(item['status'] == 'Error' for item in details) else 'Wrong Answer'
             return {'verdict': verdict, 'tests_passed': passed, 'tests_total': tests_total, 'runtime_ms': sum(item['runtime_ms'] for item in details), 'details': details}
@@ -87,7 +102,7 @@ def judge_submission(code, test_cases, time_limit_sec=5, language='python'):
     }
 
 
-def _run_single_test(code_path, input_data, expected_output, time_limit_sec, native=False):
+def _run_single_test(code_path, input_data, expected_output, time_limit_sec, native=False, environment=None):
     """Run code against a single test case."""
     try:
         started = time.perf_counter()
@@ -97,6 +112,7 @@ def _run_single_test(code_path, input_data, expected_output, time_limit_sec, nat
             capture_output=True,
             text=True,
             timeout=time_limit_sec,
+            env=environment,
         )
 
         runtime_ms = max(1, round((time.perf_counter() - started) * 1000))

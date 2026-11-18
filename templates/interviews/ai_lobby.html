@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}AI Interview — CodeDuels{% endblock %}
+{% block content %}
+<h1>AI Interview</h1>
+<p>Practice your thinking, explain your approach, and grow your skills.</p>
+<div class="card p-4 mb-4"><h3>Your next interview</h3><p class="mb-0">Answer three technical questions and their follow-ups. Get a performance report and earn up to 100 XP.</p></div>
+<form id="ai-start">{% csrf_token %}
+<div class="row g-3">{% for category, questions in categories.items %}<div class="col-md-4"><div class="card h-100 p-4"><h3>{{ category }}</h3><p>{{ questions.0 }}</p><button name="category" value="{{ category }}" class="btn btn-yellow mt-auto">Start interview</button></div></div>{% endfor %}</div>
+</form><p id="ai-start-status" role="status" class="mt-3"></p>
+{% if sessions %}<h2 class="mt-4">Your recent interviews</h2>{% for session in sessions %}<a class="card p-3 mb-2" href="{% url 'ai_room' session.pk %}">{{ session.category }} · {{ session.created_at|date:"M j, H:i" }} · {% if session.report %}{{ session.report.score }}/10 · +{{ session.xp_awarded }} XP{% else %}Resume ({{ session.revision }}/6 answers){% endif %}</a>{% endfor %}{% endif %}
+{% endblock %}
+{% block extra_js %}<script>
+document.getElementById('ai-start').onsubmit=async e=>{
+ e.preventDefault();const category=e.submitter.value;const buttons=[...e.target.querySelectorAll('button')];buttons.forEach(b=>b.disabled=true);
+ try{const result=await aiPost('{% url "ai_start" %}',{category});location.href=result.url;}
+ catch(error){document.getElementById('ai-start-status').textContent=error.message;buttons.forEach(b=>b.disabled=false);}
+};
+</script>{% endblock %}

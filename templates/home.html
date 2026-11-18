@@ -10,9 +10,11 @@
         {% if user.is_authenticated %}
         <a href="{% url 'play' %}" class="btn btn-yellow btn-lg"><span data-icon="swords"></span> Play Now</a>
         <a href="{% url 'problem_list' %}" class="btn btn-outline-light btn-lg"><span data-icon="book"></span> Question Bank</a>
+        <a href="{% url 'ai_interview' %}" class="btn btn-outline-light btn-lg"><span data-icon="terminal"></span> AI Interview</a>
         {% else %}
         <a href="{% url 'register' %}" class="btn btn-yellow btn-lg">Get Started</a>
         <a href="{% url 'login' %}" class="btn btn-outline-light btn-lg"><span data-icon="login"></span> Login</a>
+        <a href="{% url 'ai_interview' %}" class="btn btn-outline-light btn-lg"><span data-icon="terminal"></span> AI Interview</a>
         {% endif %}
     </div>
 </section>
@@ -32,6 +34,11 @@
         <div class="feature__icon"><span data-icon="trending" data-size="28"></span></div>
         <h3>Climb</h3>
         <p>Earn rating points with every win and climb the leaderboard.</p>
+    </article>
+    <article class="feature fade-in">
+        <div class="feature__icon"><span data-icon="terminal" data-size="28"></span></div>
+        <h3>AI Interview</h3>
+        <p>Practice live technical rounds and receive AI-driven feedback on your answers.</p>
     </article>
 </section>
 {% endblock %}

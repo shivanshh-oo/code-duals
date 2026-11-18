@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}{{ session.category }} — AI Interview{% endblock %}
+{% block extra_css %}
+<style>
+body:has(.interview-screen) > :is(.cd-topbar,.wave-divider,.cd-bottomnav,.cd-footer) { display:none; }
+.interview-screen { position:fixed; inset:0; z-index:2000; overflow:auto; overscroll-behavior:contain; background:var(--cream); padding:clamp(14px,3vw,36px) 0 92px; }
+.interview-shell { width:min(1280px,94%); margin:auto; }
+.interview-heading,.interview-actions,.interview-question-head { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+.interview-heading { margin-bottom:18px; }
+.interview-heading h1 { margin:3px 0 0; font-size:clamp(1.4rem,3vw,2rem); }
+.interview-heading small { color:var(--slate-deep); font-weight:700; }
+.interview-split,.interview-console { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.interview-tile { position:relative; display:grid; place-items:center; height:clamp(210px,40dvh,460px); overflow:hidden; isolation:isolate; border-radius:var(--r-lg); background:radial-gradient(ellipse at center,var(--navy-soft),var(--black-soft)); }
+.interview-tile::after { content:''; position:absolute; inset:55% 0 0; pointer-events:none; background:linear-gradient(transparent,rgba(17,17,17,.75)); }
+.interview-name { position:absolute; bottom:13px; left:14px; z-index:1; color:var(--cream); font-weight:600; }
+.interview-avatar { width:clamp(102px,24dvh,220px); aspect-ratio:1; border-radius:50%; object-fit:cover; border:3px solid var(--pale-blue-d); }
+.interview-tile.is-speaking .interview-avatar { border-color:var(--yellow); animation:voice-ring 1.2s ease-in-out infinite alternate; }
+@keyframes voice-ring { to { box-shadow:0 0 0 12px rgb(242 213 126 / .25); } }
+@media(prefers-reduced-motion:reduce) { .interview-tile.is-speaking .interview-avatar { animation:none; } }
+#candidate-video { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; background:var(--black-soft); transform:scaleX(-1); }
+.interview-devices { position:relative; z-index:1; display:flex; flex-wrap:wrap; justify-content:center; gap:6px; padding:8px; }
+.interview-tile:has(video:not([hidden])) .interview-devices { position:absolute; top:4px; right:4px; }
+.interview-console { margin-top:16px; }
+.interview-panel { padding:clamp(14px,2vw,24px); min-width:0; background:var(--pale-blue); border-radius:var(--r-lg); }
+.interview-panel h2 { font-size:1rem; margin:0; }
+#ai-question { margin:12px 0 0; font-size:clamp(1rem,2vw,1.3rem); font-weight:600; }
+#ai-status:empty,#ai-feedback:empty { display:none; }
+.ai-copy { white-space:pre-wrap; overflow-wrap:anywhere; }
+@media(max-width:650px) {
+  .interview-split { gap:8px; }
+  .interview-tile { height:clamp(150px,27dvh,240px); }
+  .interview-avatar { width:88px; }
+  .interview-name { font-size:.78rem; }
+  .interview-devices button { font-size:.72rem; padding:6px 8px; }
+  .interview-console { grid-template-columns:1fr; }
+}
+</style>
+{% endblock %}
+{% block content %}
+{% if session.report %}
+<h1>Your interview report</h1><p>{{ session.category }} · Practice feedback based on your transcripts.</p>
+<div class="card p-4 mb-4"><h2>{{ session.report.score }} / 10</h2><p class="mb-0">+{{ session.xp_awarded }} XP added to your profile. Overall score is the average of all six answer scores.</p></div>
+<div class="row g-3">
+<section class="col-md-4"><div class="card p-4 h-100"><h3>Strengths</h3><ul>{% for item in session.report.strengths %}<li>{{ item }}</li>{% endfor %}</ul></div></section>
+<section class="col-md-4"><div class="card p-4 h-100"><h3>Weaknesses</h3><ul>{% for item in session.report.weaknesses %}<li>{{ item }}</li>{% endfor %}</ul></div></section>
+<section class="col-md-4"><div class="card p-4 h-100"><h3>Improvement plan</h3><ul>{% for item in session.report.improvements %}<li>{{ item }}</li>{% endfor %}</ul></div></section>
+</div>
+<h2 class="mt-4">Answer breakdown</h2>
+{% for turn in session.turns %}<details class="card p-3 mb-3"><summary>{{ forloop.counter }}. {{ turn.question }} · {{ turn.score }}/10</summary><p class="ai-copy mt-3">{{ turn.answer }}</p><p class="ai-copy">{{ turn.feedback }}</p></details>{% endfor %}
+<a href="{% url 'ai_interview' %}" class="btn btn-yellow">Practice again</a> <a href="{% url 'profile' %}" class="btn btn-ghost">View XP</a>
+{% else %}
+<section class="interview-screen" aria-label="AI interview">
+<div class="interview-shell">
+<header class="interview-heading"><div><small>AI Interview</small><h1>{{ session.category }}</h1></div><a href="{% url 'ai_interview' %}" class="btn btn-ghost" id="ai-leave">Save & exit</a></header>
+<div class="interview-split">
+  <div id="ai-avatar-tile" class="interview-tile">
+    <img class="interview-avatar" src="{% static 'interviews/interviewer.png' %}" alt="" width="220" height="220">
+    <span id="ai-speaker" class="interview-name">AI interviewer</span>
+  </div>
+  <div class="interview-tile">
+    <video id="candidate-video" autoplay muted playsinline hidden aria-label="Your camera"></video>
+    <div class="interview-devices">
+      <button id="ai-camera" type="button" class="btn btn-yellow btn-sm">Enable camera</button>
+      <button id="ai-mic" type="button" class="btn btn-yellow btn-sm">Enable mic</button>
+    </div>
+    <span class="interview-name">You</span>
+  </div>
+</div>
+<div class="interview-console">
+  <section class="interview-panel">
+    <div class="interview-question-head"><h2 id="ai-progress">Question {{ session.revision|add:1 }} of 6</h2><button id="ai-read" type="button" class="btn btn-ghost btn-sm">Play question</button></div>
+    <p id="ai-question" class="ai-copy" aria-live="polite">{{ session.question }}</p>
+    <p id="ai-feedback" class="ai-copy mt-3 mb-0" aria-live="polite"></p>
+  </section>
+  <section class="interview-panel">
+    <form id="ai-answer">{% csrf_token %}
+      <label for="ai-transcript" class="fw-semibold">Your answer</label>
+      <textarea id="ai-transcript" class="form-control mt-2" rows="3" maxlength="6000" placeholder="Type your answer or record it below" required></textarea>
+      <label class="small d-block mt-2"><input id="ai-consent" type="checkbox" required> I agree to submit my answer for AI feedback and save it with my report.</label>
+      <div class="interview-actions mt-3">
+        <div><button type="button" id="ai-record" class="btn btn-ghost btn-sm" disabled>Record answer</button><button type="button" id="ai-stop" class="btn btn-ghost btn-sm" hidden>Stop & review</button></div>
+        <button id="ai-submit" class="btn btn-yellow btn-sm">{% if session.revision == 5 %}Finish & get report{% else %}Submit answer{% endif %}</button>
+      </div>
+    </form>
+    <p id="ai-status" role="status" class="small mt-2 mb-0"></p>
+  </section>
+</div>
+</div>
+</section>
+{% endif %}
+{% endblock %}
+{% block extra_js %}{% if not session.report %}{% include 'interviews/ai_room_script.html' %}{% endif %}{% endblock %}

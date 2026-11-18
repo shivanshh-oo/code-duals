@@ -2,6 +2,19 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils.text import slugify
 from problems.models import Problem
+import uuid
+
+
+class AIInterview(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='ai_interviews')
+    category = models.CharField(max_length=40)
+    question = models.TextField()
+    turns = models.JSONField(default=list)
+    revision = models.PositiveIntegerField(default=0)
+    report = models.JSONField(default=dict)
+    xp_awarded = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
 
 
 class InterviewTrack(models.Model):

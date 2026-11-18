@@ -7,7 +7,8 @@ from django.db.models import Q
 
 def problem_list(request):
     """Question bank page - renders the template."""
-    return render(request, 'problems/problem_list.html')
+    problems = Problem.objects.filter(Q(is_draft=False) | Q(is_draft=True, test_cases__is_sample=True)).distinct()
+    return render(request, 'problems/problem_list.html', {'initial_problems': problems})
 
 
 def problem_list_api(request):

@@ -1,0 +1,144 @@
+<script>
+(() => {
+ const el=id=>document.getElementById(id), status=el('ai-status'), transcript=el('ai-transcript');
+ const Speech=window.SpeechRecognition || window.webkitSpeechRecognition;
+ let camera=null, mic=null, recorder=null, recognition=null, timer=null, revision={{ session.revision }}, busy=false, leaving=false;
+ let recording=false, stopping=false, audioStopped=true, speechStopped=true, audioGeneration=0;
+ const playback=document.createElement('audio');playback.controls=true;playback.hidden=true;playback.className='w-100 mt-2';
+ playback.setAttribute('aria-label','Review your recorded answer');el('ai-answer').append(playback);
+ let audioURL=null;
+ let voiceEnabled=false, spokenQuestion=null;
+ function stopVoice(){
+   spokenQuestion=null;
+   window.speechSynthesis?.cancel();
+   el('ai-avatar-tile').classList.remove('is-speaking');
+   el('ai-speaker').textContent='AI interviewer';
+   el('ai-read').textContent='Play question';
+ }
+ function speakQuestion(){
+   if(!window.speechSynthesis || !window.SpeechSynthesisUtterance){status.textContent='Voice playback is unavailable in this browser.';return;}
+   stopVoice();
+   const question=new SpeechSynthesisUtterance(el('ai-question').textContent);
+   question.lang='en-US';
+   question.rate=.94;
+   spokenQuestion=question;
+   question.onstart=()=>{
+     if(spokenQuestion!==question)return;
+     el('ai-avatar-tile').classList.add('is-speaking');
+     el('ai-speaker').textContent='AI interviewer · Speaking';
+     el('ai-read').textContent='Stop voice';
+   };
+   question.onend=question.onerror=()=>{if(spokenQuestion===question)stopVoice();};
+   window.speechSynthesis.speak(question);
+ }
+ function discardAudio(){audioGeneration++;playback.pause();playback.removeAttribute('src');playback.hidden=true;if(audioURL)URL.revokeObjectURL(audioURL);audioURL=null;}
+ function settled(){stopping=!(audioStopped && speechStopped);controls();}
+ function controls(){
+   el('ai-record').disabled=busy || recording || stopping || !mic || !Speech || !window.MediaRecorder;
+   el('ai-record').hidden=recording;el('ai-stop').hidden=!recording;
+   el('ai-submit').disabled=busy || recording || stopping;
+   el('ai-submit').setAttribute('aria-busy',String(busy));
+   transcript.disabled=busy || recording || stopping;el('ai-read').disabled=busy || recording || stopping;
+ }
+ function stop(){
+   if(!recording)return;recording=false;stopping=true;clearTimeout(timer);
+   if(recorder?.state==='recording')recorder.stop();
+   if(recognition){try{recognition.stop();}catch{speechStopped=true;settled();}}else{speechStopped=true;settled();}
+   controls();
+ }
+ function setDevice(isCamera, stream){
+   if(isCamera){
+     camera=stream;
+     el('candidate-video').srcObject=stream;
+     el('candidate-video').hidden=!stream;
+   }else{
+     if(!stream)stop();
+     mic=stream;
+   }
+   const button=el(isCamera ? 'ai-camera' : 'ai-mic');
+   button.textContent=(stream ? 'Turn off ' : 'Enable ')+(isCamera ? 'camera' : 'mic');
+   controls();
+ }
+ function release(){
+   for(const stream of [camera,mic])stream?.getTracks().forEach(track=>track.stop());
+   setDevice(true,null);
+   setDevice(false,null);
+ }
+ async function toggleDevice(isCamera){
+   const stream=isCamera ? camera : mic;
+   if(stream){stream.getTracks().forEach(track=>track.stop());setDevice(isCamera,null);return;}
+   if(!window.isSecureContext || !navigator.mediaDevices){status.textContent='Camera and microphone require HTTPS or localhost.';return;}
+   const button=el(isCamera ? 'ai-camera' : 'ai-mic');
+   const name=isCamera ? 'Camera' : 'Microphone';
+   button.disabled=true;
+   status.textContent='';
+   try{
+     const opened=await navigator.mediaDevices.getUserMedia({video:isCamera,audio:!isCamera});
+     if(leaving){opened.getTracks().forEach(track=>track.stop());return;}
+     setDevice(isCamera,opened);
+     for(const track of opened.getTracks())track.addEventListener('ended',()=>{
+       if((isCamera ? camera : mic)!==opened)return;
+       setDevice(isCamera,null);
+       status.textContent=name+' disconnected. Enable it again to reconnect.';
+     },{once:true});
+     if(!isCamera && (!Speech || !window.MediaRecorder))status.textContent='Voice answers are unavailable in this browser. You can type your answer.';
+   }catch(error){
+     status.textContent=error.name==='NotReadableError' || /device in use/i.test(error.message)
+       ? name+' is busy or unavailable. Close any apps or tabs using it, then try again.'
+       : name+' unavailable: '+error.message;
+   }finally{button.disabled=false;}
+ }
+ el('ai-camera').onclick=()=>toggleDevice(true);
+ el('ai-mic').onclick=()=>toggleDevice(false);
+ el('ai-read').onclick=()=>{
+   if(spokenQuestion){voiceEnabled=false;stopVoice();return;}
+   voiceEnabled=true;
+   speakQuestion();
+ };
+ el('ai-record').onclick=()=>{
+   discardAudio();stopVoice();
+   const chunks=[], generation=audioGeneration;let initial=transcript.value.trim();
+   try{
+     // Only microphone tracks enter MediaRecorder. Video never leaves the preview.
+     recorder=new MediaRecorder(mic);
+     const mimeType=recorder.mimeType;
+     recorder.ondataavailable=event=>{if(event.data.size)chunks.push(event.data);};
+     recorder.onstop=()=>{
+       if(!leaving && generation===audioGeneration && chunks.length){audioURL=URL.createObjectURL(new Blob(chunks,{type:mimeType}));playback.src=audioURL;playback.hidden=false;}
+       chunks.length=0;audioStopped=true;settled();
+     };
+     recorder.onerror=()=>{status.textContent='Audio recording failed. Review or type your transcript.';stop();};
+     recognition=new Speech();recognition.lang='en-US';recognition.continuous=true;recognition.interimResults=true;
+     recognition.onresult=event=>{
+       let spoken='';for(let i=0;i<event.results.length;i++)spoken+=event.results[i][0].transcript+' ';
+       transcript.value=(initial+' '+spoken).trim().slice(0,6000);
+     };
+     recognition.onerror=event=>{status.textContent='Speech recognition: '+event.error+'. Review or type your answer.';stop();};
+     recognition.onend=()=>{recognition=null;speechStopped=true;if(recording)stop();settled();};
+     recognition.start();speechStopped=false;recorder.start();audioStopped=false;recording=true;controls();
+     status.textContent='Recording microphone only… Stop to review before submitting (3 minute limit).';
+     timer=setTimeout(()=>{stop();status.textContent='Recording stopped at 3 minutes. Review your transcript.';},180000);
+   }catch(error){stop();recognition?.abort();audioStopped=recorder?.state!=='recording';speechStopped=true;settled();status.textContent='Recording unavailable. Type your answer. '+error.message;}
+ };
+ el('ai-stop').onclick=()=>{stop();status.textContent='Review and correct the transcript, then submit.';};
+ el('ai-answer').onsubmit=async event=>{
+   event.preventDefault();if(busy || recording || stopping || !transcript.value.trim())return;
+   stopVoice();busy=true;controls();status.textContent='Interviewer is reviewing your answer…';
+   try{
+     const result=await aiPost('{% url "ai_answer" session.pk %}',{revision,transcript:transcript.value});
+     discardAudio();
+     if(result.done){leaving=true;release();location.href=result.url;return;}
+     revision=result.revision;el('ai-question').textContent=result.question;el('ai-feedback').textContent=result.feedback;
+     el('ai-progress').textContent='Question '+(revision+1)+' of 6';transcript.value='';el('ai-consent').checked=false;
+     el('ai-submit').textContent=revision===5 ? 'Finish & get report' : 'Submit answer';status.textContent='';
+     if(voiceEnabled)speakQuestion();
+   }catch(error){status.textContent=error.message;}
+   finally{busy=false;controls();}
+ };
+ el('ai-leave').onclick=event=>{if(busy){event.preventDefault();status.textContent='Please wait for your answer to finish saving.';}};
+ window.addEventListener('pagehide',()=>{leaving=true;stopVoice();release();discardAudio();});
+ window.addEventListener('pageshow',()=>{leaving=false;});
+ window.addEventListener('beforeunload',event=>{if(busy || transcript.value.trim()){event.preventDefault();event.returnValue='';}});
+ controls();
+})();
+</script>

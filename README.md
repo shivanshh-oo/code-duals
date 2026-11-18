@@ -1,5 +1,68 @@
 # CodeDuels ⚔️
 
+## Running this copy
+
+### AI chatbot and AI Interview
+
+Add `GROQ_API_KEY=your-groq-key` to `.env`, then restart Django. The chatbot and
+interview features share this key and default to `openai/gpt-oss-20b`, which is
+available on the [Groq Free Plan](https://console.groq.com/docs/rate-limits).
+`GROQ_MODEL` can override the default with another model supporting JSON Object Mode.
+
+Run `python manage.py migrate` before opening **AI Interview** (`/ai/`). The floating
+**Ask AI** button appears throughout the application; sign in to send questions.
+Choose AI/ML, Software Development, or Web Development. Each interview has three
+core questions and one Grok-generated follow-up per question (six answers total).
+Completed reports include per-answer feedback, strengths, weaknesses, and improvements.
+The overall score is the mean of the six answer scores, rounded to one decimal.
+XP equals that score × 10 (0–100 XP), credited once per completed session.
+Recent sessions and reports are accessible only to their owner from `/ai/`.
+
+Use HTTPS or localhost for camera/microphone access, preferably Chrome or Edge for
+browser speech recognition. Camera video is only a live preview and is never recorded
+or uploaded. **Record answer** captures only microphone tracks in memory (up to three
+minutes per answer). **Stop & review** allows local audio playback and transcript
+correction; audio is discarded on submission or exit. Browser speech recognition may
+process audio through the browser vendor's service. Only reviewed text is sent to Grok;
+transcripts and reports are stored in the application's database. Typing remains available
+when permissions are denied or speech recognition is unsupported. Save & exit preserves
+submitted answers; submit the current answer before leaving to retain it.
+
+Provider failures retain the current answer for retry. Rate limiting uses Django's cache
+(process-local by default); use a shared cache if deploying multiple workers.
+Run `python manage.py test interviews.test_ai` for mocked provider and interview tests.
+
+C++ submissions automatically detect `g++` on PATH or in the standard MSYS2
+UCRT64/MinGW64 installation folders. The judge supplies the compiler directory
+to both compilation and execution so runtime DLLs are found. Restart Django
+after updating the judge. No Windows PATH changes are needed for standard MSYS2.
+
+For voice interviews, open `/interview/`, choose a topic, use Dictate answer,
+then Stop and review each transcript. Select consent and click Finish to send
+all three answers to Groq for a 0–10 rating, feedback and improvement suggestions.
+Use `http://localhost:8000/interview/` on the host for microphone access. LAN HTTP
+may require typed transcripts. HTTP 401 from Groq means the configured key is
+rejected; replace `GROQ_API_KEY` in `.env` and restart the server.
+
+This project copy is at `C:\Users\Dell\Downloads\code-duals-new\code-duals-new`.
+Its database is separate from any Desktop project copy. Start it with:
+
+```powershell
+cd C:\Users\Dell\Downloads\code-duals-new\code-duals-new
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+python manage.py migrate
+python manage.py seed_problems
+python manage.py seed_interviews
+python manage.py run_lan
+```
+
+Questions: `/problems/`. Coding interview tracks: `/interviews/`.
+Voice interviews (DSA, AI/ML, web development): `/interview/`, also linked from
+the coding interview page. Put a valid `GROQ_API_KEY` in the local `.env`, then
+restart Django. Invalid credentials cannot produce AI ratings. Use localhost or
+HTTPS for browser microphone access; LAN HTTP supports typed transcripts.
+
 A 1v1 coding duel platform where two players compete to solve the same programming problems. The faster and more accurate solver wins and earns rating points.
 
 ## Features

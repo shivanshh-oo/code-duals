@@ -3,8 +3,13 @@ Django settings for codeduels project.
 """
 
 from pathlib import Path
+import os
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / '.env')
+GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
+GROQ_MODEL = os.environ.get('GROQ_MODEL', 'openai/gpt-oss-20b')
 
 SECRET_KEY = 'django-insecure-3yix&axe(-ogn@0q$g*lt0niq*_!eo3g$fc#fd^g5)!%l8u$(c'
 
