@@ -105,11 +105,18 @@ Expected Output:
             <div class="workspace-compiler-column">
                 <form class="solution compiler-box-wrapper" action="{% url 'match_submit' match.id item.problem.id %}">
                     {% csrf_token %}
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <label class="form-label mb-0"><strong><span data-icon="terminal" data-size="15"></span> Python
-                                Compiler & Solution</strong></label>
-                        <span class="text-muted" style="font-size:.8rem;">Use <code>input()</code> and
-                            <code>print()</code></span>
+                    <div class="d-flex justify-content-between align-items-center mb-2" style="flex-wrap:wrap;gap:8px;">
+                        <div class="d-flex align-items-center gap-2">
+                            <label class="form-label mb-0 arena-editor-label"><strong><span data-icon="terminal" data-size="15"></span> Python 3 Solution</strong></label>
+                            <span class="text-muted arena-editor-hint" style="font-size:.8rem;">Use <code>input()</code> and <code>print()</code></span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <label style="font-size:.82rem;font-weight:600;margin:0;">Language:</label>
+                            <select name="language" class="form-select form-select-sm arena-lang-select" style="width:auto;min-width:110px;padding:3px 24px 3px 10px;border-radius:var(--r-pill);" onchange="updateArenaLang(this)">
+                                <option value="python">Python 3</option>
+                                <option value="cpp">C++17</option>
+                            </select>
+                        </div>
                     </div>
                     <textarea class="form-control code-editor mb-3" name="code" rows="18" placeholder="# Write your Python 3 code here...
 # Read input with input()
@@ -129,6 +136,30 @@ Expected Output:
 
 {% block extra_js %}
 <script>
+    function updateArenaLang(selectEl) {
+        const form = selectEl.closest('form');
+        if (!form) return;
+        const lang = selectEl.value;
+        const label = form.querySelector('.arena-editor-label');
+        const hint = form.querySelector('.arena-editor-hint');
+        const textarea = form.querySelector('textarea[name="code"]');
+
+        if (lang === 'cpp') {
+            if (label) label.innerHTML = '<strong><span data-icon="terminal" data-size="15"></span> C++17 Solution</strong>';
+            if (hint) hint.innerHTML = 'Use <code>cin</code> and <code>cout</code>';
+            if (textarea) {
+                textarea.placeholder = "// Write your C++17 solution here...\n#include <iostream>\nusing namespace std;\n\nint main() {\n    // Read input with cin >>\n    // Print output with cout <<\n    return 0;\n}";
+            }
+        } else {
+            if (label) label.innerHTML = '<strong><span data-icon="terminal" data-size="15"></span> Python 3 Solution</strong>';
+            if (hint) hint.innerHTML = 'Use <code>input()</code> and <code>print()</code>';
+            if (textarea) {
+                textarea.placeholder = "# Write your Python 3 code here...\n# Read input with input()\n# Print output with print()";
+            }
+        }
+        if (label && window.CD && window.CD.hydrateIcons) window.CD.hydrateIcons(label);
+    }
+
     function selectDuelProblem(index) {
         document.querySelectorAll('.duel-problem-card').forEach((card, i) => {
             card.style.display = (i === index ? 'block' : 'none');

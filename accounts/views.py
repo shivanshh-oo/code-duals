@@ -82,6 +82,7 @@ def placement_submit(request):
 
     for problem in problems:
         code = request.POST.get(f'code_{problem.id}', '').strip()
+        language = request.POST.get(f'language_{problem.id}', 'python')
         max_score += 1
 
         sample_count = problem.test_cases.filter(is_sample=True).count()
@@ -90,7 +91,7 @@ def placement_submit(request):
 
         if code:
             all_tests = problem.test_cases.all()
-            result = judge_submission(code, all_tests, problem.time_limit_sec)
+            result = judge_submission(code, all_tests, problem.time_limit_sec, language=language)
             if result['verdict'] == 'Accepted':
                 total_score += 1
             results.append({

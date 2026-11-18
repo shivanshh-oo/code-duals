@@ -64,13 +64,23 @@
                 <!-- RIGHT COLUMN: Compiler Box / Code Editor -->
                 <div class="workspace-compiler-column">
                     <div class="compiler-box-wrapper">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <label class="form-label mb-0"><strong><span data-icon="terminal" data-size="14"></span> Python 3 Compiler & Editor</strong></label>
-                            <span class="text-muted" style="font-size:.8rem;">Use <code>input()</code> & <code>print()</code></span>
+                        <div class="d-flex justify-content-between align-items-center mb-2" style="flex-wrap:wrap;gap:8px;">
+                            <div class="d-flex align-items-center gap-2">
+                                <label class="form-label mb-0" id="label_{{ problem.id }}"><strong><span data-icon="terminal" data-size="14"></span> Python 3 Editor</strong></label>
+                                <span class="text-muted" id="hint_{{ problem.id }}" style="font-size:.8rem;">Use <code>input()</code> & <code>print()</code></span>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <label style="font-size:.82rem;font-weight:600;margin:0;">Language:</label>
+                                <select name="language_{{ problem.id }}" class="form-select form-select-sm" style="width:auto;min-width:110px;padding:3px 24px 3px 10px;border-radius:var(--r-pill);" onchange="updatePlacementLang('{{ problem.id }}', this.value)">
+                                    <option value="python">Python 3</option>
+                                    <option value="cpp">C++17</option>
+                                </select>
+                            </div>
                         </div>
-                        <textarea class="form-control code-editor" name="code_{{ problem.id }}" rows="18" style="min-height:55vh;"
-                                  placeholder="# Write your Python solution here...
-# Read with input() and print with print()"></textarea>
+                        <textarea class="form-control code-editor" name="code_{{ problem.id }}" id="editor_{{ problem.id }}" rows="18" style="min-height:55vh;"
+                                  placeholder="# Write your Python 3 solution here...
+# Read input with input()
+# Print output with print()"></textarea>
                     </div>
                 </div>
             </div>
@@ -96,6 +106,27 @@
 
 {% block extra_js %}
 <script>
+function updatePlacementLang(problemId, lang) {
+    const editor = document.getElementById('editor_' + problemId);
+    const label = document.getElementById('label_' + problemId);
+    const hint = document.getElementById('hint_' + problemId);
+    
+    if (lang === 'cpp') {
+        if (label) label.innerHTML = '<strong><span data-icon="terminal" data-size="14"></span> C++17 Editor</strong>';
+        if (hint) hint.innerHTML = 'Use <code>cin</code> & <code>cout</code>';
+        if (editor) {
+            editor.placeholder = "// Write your C++17 solution here...\n#include <iostream>\nusing namespace std;\n\nint main() {\n    // Read input with cin >>\n    // Print output with cout <<\n    return 0;\n}";
+        }
+    } else {
+        if (label) label.innerHTML = '<strong><span data-icon="terminal" data-size="14"></span> Python 3 Editor</strong>';
+        if (hint) hint.innerHTML = 'Use <code>input()</code> & <code>print()</code>';
+        if (editor) {
+            editor.placeholder = "# Write your Python 3 solution here...\n# Read input with input()\n# Print output with print()";
+        }
+    }
+    if (label && window.CD && window.CD.hydrateIcons) window.CD.hydrateIcons(label);
+}
+
 let timeLeft = 30 * 60;
 const timerEl = document.getElementById('timer');
 

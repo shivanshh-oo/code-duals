@@ -95,17 +95,20 @@ Expected Output:
             <div class="workspace-compiler-column">
                 <form class="interview-form compiler-box-wrapper" action="{% url 'submit_interview_problem' session.id item.problem.id %}">
                     {% csrf_token %}
-                    <label>Language 
-                        <select name="language" class="form-select">
-                            <option value="python">Python 3</option>
-                            <option value="cpp">C++17</option>
-                        </select>
-                    </label>
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <label class="form-label mb-0"><strong><span data-icon="terminal" data-size="15"></span> Solution Editor</strong></label>
-                        <span class="text-muted" style="font-size:.8rem;">Standard I/O (<code>input()</code>, <code>print()</code>)</span>
+                    <div class="d-flex justify-content-between align-items-center mb-2" style="flex-wrap:wrap;gap:8px;">
+                        <div class="d-flex align-items-center gap-2">
+                            <label class="form-label mb-0 interview-editor-label"><strong><span data-icon="terminal" data-size="15"></span> Python 3 Solution Editor</strong></label>
+                            <span class="text-muted interview-editor-hint" style="font-size:.8rem;">Use <code>input()</code> &amp; <code>print()</code></span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <label style="font-size:.82rem;font-weight:600;margin:0;">Language:</label>
+                            <select name="language" class="form-select form-select-sm interview-lang-select" style="width:auto;min-width:110px;padding:3px 24px 3px 10px;border-radius:var(--r-pill);" onchange="updateInterviewLang(this, {{ forloop.counter }})">
+                                <option value="python">Python 3</option>
+                                <option value="cpp">C++17</option>
+                            </select>
+                        </div>
                     </div>
-                    <textarea class="form-control code-editor mb-3" name="code" rows="18" placeholder="# Write your solution for Stage {{ forloop.counter }} here...
+                    <textarea class="form-control code-editor mb-3" name="code" rows="18" placeholder="# Write your Python 3 solution for Stage {{ forloop.counter }} here...
 # Read input with input()
 # Print output with print()" required>{% if item.latest_submission %}{{ item.latest_submission.code }}{% endif %}</textarea>
                     
@@ -128,6 +131,30 @@ Expected Output:
 
 {% block extra_js %}
 <script>
+function updateInterviewLang(selectEl, stageNum) {
+    const form = selectEl.closest('form');
+    if (!form) return;
+    const lang = selectEl.value;
+    const label = form.querySelector('.interview-editor-label');
+    const hint = form.querySelector('.interview-editor-hint');
+    const textarea = form.querySelector('textarea[name="code"]');
+
+    if (lang === 'cpp') {
+        if (label) label.innerHTML = '<strong><span data-icon="terminal" data-size="15"></span> C++17 Solution Editor</strong>';
+        if (hint) hint.innerHTML = 'Use <code>cin</code> &amp; <code>cout</code>';
+        if (textarea) {
+            textarea.placeholder = `// Write your C++17 solution for Stage ${stageNum} here...\n#include <iostream>\nusing namespace std;\n\nint main() {\n    // Read input with cin >>\n    // Print output with cout <<\n    return 0;\n}`;
+        }
+    } else {
+        if (label) label.innerHTML = '<strong><span data-icon="terminal" data-size="15"></span> Python 3 Solution Editor</strong>';
+        if (hint) hint.innerHTML = 'Use <code>input()</code> &amp; <code>print()</code>';
+        if (textarea) {
+            textarea.placeholder = `# Write your Python 3 solution for Stage ${stageNum} here...\n# Read input with input()\n# Print output with print()`;
+        }
+    }
+    if (label && window.CD && window.CD.hydrateIcons) window.CD.hydrateIcons(label);
+}
+
 function selectProblemTab(idx) {
     document.querySelectorAll('.interview-card').forEach((c, i) => c.style.display = (i === idx ? 'block' : 'none'));
     document.querySelectorAll('.duel-tab-btn').forEach((b, i) => b.setAttribute('aria-selected', i === idx));
